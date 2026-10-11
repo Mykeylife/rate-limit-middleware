@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Keys & Rate Limits</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 40px;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .header p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .cards-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .key-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .key-badge {
+      background: #667eea;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .key-badge.active {
+      background: #10b981;
+    }
+
+    .key-badge.inactive {
+      background: #ef4444;
+    }
+
+    .key-value {
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 16px;
+      word-break: break-all;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: #667eea;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: #f0f1ff;
+    }
+
+    .copy-btn.copied {
+      color: #10b981;
+    }
+
+    .usage-section {
+      margin-bottom: 20px;
+    }
+
+    .usage-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .usage-number {
+      color: #333;
+      font-weight: 700;
+    }
+
+    .progress-bar {
+      background: #e5e7eb;
+      border-radius: 8px;
+      height: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #6ee7b7);
+      border-radius: 8px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-fill.warning {
+      background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+
+    .progress-fill.critical {
+      background: linear-gradient(90deg, #ef4444, #fca5a5);
+    }
+
+    .reset-time {
+      font-size: 12px;
+      color: #999;
+      margin-top: 8px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #333;
+      border: 1px solid #e5e7eb;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: white;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      font-size: 16px;
+      opacity: 0.8;
+      margin-bottom: 24px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #333;
+    }
+
+    .modal-text {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .modal-buttons .btn {
+      flex: 1;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: none;
+      z-index: 2000;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.active {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 20px;
+      color: white;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔑 API Keys & Rate Limits</h1>
+      <p>Manage your API keys and monitor consumption</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="totalKeys">3</div>
+        <div class="stat-label">Active Keys</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="avgUsage">42%</div>
+        <div class="stat-label">Avg Usage</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="requestsPerMin">2,847</div>
+        <div class="stat-label">Req/Min Limit</div>
+      </div>
+    </div>
+
+    <div class="cards-grid" id="keysContainer">
+      <!-- Cards will be generated here by JavaScript -->
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="empty-state-icon">🔓</div>
+      <h2>No API Keys</h2>
+      <p>Create your first API key to get started</p>
+    </div>
+  </div>
+
+  <!-- Regenerate Confirmation Modal -->
+  <div class="modal" id="regenerateModal">
+    <div class="modal-content">
+      <div class="modal-header">⚠️ Regenerate API Key?</div>
+      <div class="modal-text">
+        This will invalidate the current key and generate a new one. Applications using the old key will stop working.
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeModal('regenerateModal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmRegenerate()">Regenerate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal" id="deleteModal">
+    <div class="modal-content">
+      <div class="modal-header">🗑️ Delete API Key?</div>
+      <div class="modal-text">
+        This action cannot be undone. The key will be permanently deleted and all access will be revoked.
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Mock data - replace with actual API calls
+    const apiKeys = [
+      {
+        id: 'key_1',
+        name: 'Production API',
+        key: 'sk_prod_1a2b3c4d5e6f7g8h9i0j',
+        status: 'active',
+        created: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        usage: 42,
+        requests: 2100,
+        limit: 5000,
+        resetIn: '23 minutes'
+      },
+      {
+        id: 'key_2',
+        name: 'Development API',
+        key: 'sk_dev_9a8b7c6d5e4f3g2h1i0j',
+        status: 'active',
+        created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        usage: 28,
+        requests: 1400,
+        limit: 5000,
+        resetIn: '18 minutes'
+      },
+      {
+        id: 'key_3',
+        name: 'Testing API',
+        key: 'sk_test_0i9h8g7f6e5d4c3b2a1z',
+        status: 'active',
+        created: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        usage: 67,
+        requests: 3350,
+        limit: 5000,
+        resetIn: '12 minutes'
+      }
+    ];
+
+    let currentKeyId = null;
+
+    function getUsageColor(usage) {
+      if (usage >= 80) return 'critical';
+      if (usage >= 60) return 'warning';
+      return '';
+    }
+
+    function formatDate(date) {
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(date);
+    }
+
+    function maskKey(key) {
+      return key.slice(0, 7) + '•'.repeat(10) + key.slice(-5);
+    }
+
+    function renderKeys() {
+      const container = document.getElementById('keysContainer');
+      const emptyState = document.getElementById('emptyState');
+
+      if (apiKeys.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        updateStats();
+        return;
+      }
+
+      container.style.display = 'grid';
+      emptyState.style.display = 'none';
+
+      container.innerHTML = apiKeys.map(key => `
+        <div class="card">
+          <div class="card-header">
+            <div class="key-name">${key.name}</div>
+            <div class="key-badge ${key.status}">${key.status}</div>
+          </div>
+
+          <div class="key-value">
+            <span>${maskKey(key.key)}</span>
+            <button class="copy-btn" onclick="copyToClipboard('${key.key}', this)">Copy</button>
+          </div>
+
+          <div style="font-size: 12px; color: #999; margin-bottom: 16px;">
+            Created ${formatDate(key.created)}
+          </div>
+
+          <div class="usage-section">
+            <div class="usage-label">
+              <span>Rate Limit Usage</span>
+              <span class="usage-number">${key.usage}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill ${getUsageColor(key.usage)}" style="width: ${key.usage}%;"></div>
+            </div>
+            <div class="usage-label" style="margin-top: 8px;">
+              <span>${key.requests} / ${key.limit} requests</span>
+              <span class="reset-time">Resets in ${key.resetIn}</span>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button class="btn btn-primary" onclick="openRegenerateModal('${key.id}')">
+              🔄 Regenerate
+            </button>
+            <button class="btn btn-secondary" onclick="openDeleteModal('${key.id}')">
+              🗑️ Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      updateStats();
+    }
+
+    function updateStats() {
+      const activeKeys = apiKeys.filter(k => k.status === 'active').length;
+      const avgUsage = apiKeys.length > 0 
+        ? Math.round(apiKeys.reduce((sum, k) => sum + k.usage, 0) / apiKeys.length)
+        : 0;
+      const totalRequests = apiKeys.reduce((sum, k) => sum + k.limit, 0);
+
+      document.getElementById('totalKeys').textContent = activeKeys;
+      document.getElementById('avgUsage').textContent = avgUsage + '%';
+      document.getElementById('requestsPerMin').textContent = totalRequests.toLocaleString();
+    }
+
+    function copyToClipboard(text, button) {
+      navigator.clipboard.writeText(text).then(() => {
+        button.textContent = '✓ Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    function openRegenerateModal(keyId) {
+      currentKeyId = keyId;
+      document.getElementById('regenerateModal').classList.add('active');
+    }
+
+    function openDeleteModal(keyId) {
+      currentKeyId = keyId;
+      document.getElementById('deleteModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+      currentKeyId = null;
+    }
+
+    function confirmRegenerate() {
+      const key = apiKeys.find(k => k.id === currentKeyId);
+      if (key) {
+        // Generate new key
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        const newKey = 'sk_prod_' + Array.from({length: 20}, () => 
+          chars.charAt(Math.floor(Math.random() * chars.length))
+        ).join('');
+        
+        key.key = newKey;
+        renderKeys();
+        showToast('✓ API key regenerated successfully');
+      }
+      closeModal('regenerateModal');
+    }
+
+    function confirmDelete() {
+      const index = apiKeys.findIndex(k => k.id === currentKeyId);
+      if (index > -1) {
+        const keyName = apiKeys[index].name;
+        apiKeys.splice(index, 1);
+        renderKeys();
+        showToast(`✓ "${keyName}" deleted successfully`);
+      }
+      closeModal('deleteModal');
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('active');
+      setTimeout(() => toast.classList.remove('active'), 3000);
+    }
+
+    // Close modals when clicking outside
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal(modal.id);
+        }
+      });
+    });
+
+    // Initial render
+    renderKeys();
+  </script>
+</body>
+</html>
