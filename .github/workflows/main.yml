@@ -60,8 +60,10 @@ jobs:
           python -m pip install mypy flake8 pytest pytest-cov
 
       - name: Run static type checks with mypy
-        run: |
-          mypy --config-file pyproject.toml src
+       env:
+         MYPYPATH: ./src
+  run: |
+    mypy --config-file=pyproject.toml gateway
 
       - name: Run lint with flake8
         run: |
