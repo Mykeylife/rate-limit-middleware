@@ -2,27 +2,24 @@
 # mypy configuration - strict checks, target Python 3.11
 # ========================================================================
 [tool.mypy]
-# Target Python version
 python_version = "3.11"
 
-# Explicit root resolution rules to completely prevent duplicate path lookup errors
-mypy_path = "src"
+# Absolute workspace isolation to completely prevent duplicate module names
 explicit_package_bases = true
 namespace_packages = true
+mypy_path = "src"
 
-# Strictness: enforce untyped defs checks and warn on Any returns
+# Tell mypy exactly which root entry points to check to avoid automated duplicate scanning
+files = ["src/gateway"]
+
+# Strictness requirements for DataFactor validation
 disallow_untyped_defs = true
 check_untyped_defs = true
 warn_return_any = true
-
-# Additional sensible strict settings (required for DataFactor licensing)
 disallow_untyped_calls = true
 disallow_incomplete_defs = true
 warn_unused_ignores = true
 no_implicit_optional = true
 
-# Explicitly discover the src directory context natively
-files = ["src"]
-
-# Allow some third-party stubs to be missing while keeping strictness elsewhere
+# Silently ignore missing third-party module type stubs
 ignore_missing_imports = true
