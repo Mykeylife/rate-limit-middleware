@@ -61,6 +61,7 @@ jobs:
 
       - name: Run static type checks with mypy
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE/src
           mypy -m gateway
 
       - name: Run lint with flake8
