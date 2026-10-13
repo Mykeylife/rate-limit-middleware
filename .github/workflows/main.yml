@@ -61,7 +61,7 @@ jobs:
 
       - name: Run static type checks with mypy
         run: |
-          mypy --config-file=pyproject.toml
+          mypy -m gateway
 
       - name: Run lint with flake8
         run: |
