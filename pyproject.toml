@@ -1,3 +1,43 @@
+[build-system]
+requires = ["setuptools>=65.5", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "api-rate-limiter-gateway"
+version = "0.1.0"
+description = "Lightweight API Rate Limiter & Security Gateway Proxy (FastAPI)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Olanrewaju Micheal Akinbode", email = "mykeylife6@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.95",
+  "uvicorn[standard]>=0.22",
+  "pydantic>=1.10",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "mypy>=1.10",
+  "flake8>=6.0",
+  "black>=23.9",
+  "isort>=5.12",
+  "Flake8-pyproject>=1.2.3",
+]
+
+# ========================================================================
+# Pytest configuration - test discovery and colored output
+# ========================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -r a --color=yes"
+pythonpath = ["src"]
+
+# ========================================================================
+# mypy configuration - strict checks, target Python 3.11
+# ========================================================================
 [tool.mypy]
 python_version = "3.11"
 
@@ -17,17 +57,11 @@ no_implicit_optional = true
 ignore_missing_imports = true
 
 # ========================================================================
-# Flake8 configuration - style and linting
+# Flake8 configuration - modern style limits to prevent E501 errors
 # ========================================================================
 [tool.flake8]
-# Raise the line length limit to modern development standards
 max-line-length = 120
-
-# Ignore line length limits (E501) and trailing whitespaces (W291) entirely 
-# to keep quality gates focused on critical bugs rather than strict aesthetics.
 ignore = ["E501", "W291", "E203", "W503"]
-
-# Exclude typical virtualenv, build, and test artifacts
 exclude = [
   ".venv",
   "venv",
@@ -38,3 +72,21 @@ exclude = [
   ".git",
   ".github",
 ]
+
+# ========================================================================
+# Black configuration - code formatter matching flake8 limits
+# ========================================================================
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+skip-string-normalization = false
+
+# ========================================================================
+# isort configuration - import sorting
+# ========================================================================
+[tool.isort]
+profile = "black"
+line_length = 120
+default_section = "THIRDPARTY"
+multi_line_output = 3
+include_trailing_comma = true
