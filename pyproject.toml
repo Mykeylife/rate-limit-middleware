@@ -1,106 +1,28 @@
-[build-system]
-requires = ["setuptools>=65.5", "wheel"]
-build-backend = "setuptools.build_meta"
-# Require Python 3.11+ for building/installing this project
-requires-python = ">=3.11"
-
-[project]
-name = "api-rate-limiter-gateway"
-version = "0.1.0"
-description = "Lightweight API Rate Limiter & Security Gateway Proxy (FastAPI)"
-readme = "README.md"
-license = { text = "MIT" }
-authors = [{ name = "Your Name", email = "you@example.com" }]
-requires-python = ">=3.11"
-# Runtime dependencies
-dependencies = [
-  "fastapi>=0.95",
-  "uvicorn[standard]>=0.22",
-  "pydantic>=1.10",
-]
-
-[project.optional-dependencies]
-dev = [
-  "pytest>=7.0",
-  "pytest-cov>=4.0",
-  "mypy>=1.10",
-  "flake8>=6.0",
-  "black>=23.9",
-  "isort>=5.12",
-]
-
-# ========================================================================
-# Pytest configuration - test discovery and colored output, point tests -> tests/
-# ========================================================================
-[tool.pytest.ini_options]
-# Use the tests/ directory as the test root
-testpaths = ["tests"]
-# Add recommended options: show more info on failures (-r a), quiet dots replaced with short output (-q),
-# and force color output for CI terminals.
-addopts = "-q -r a --color=yes"
-# Attempt to make 'src' available on PYTHONPATH for test runs.
-# Note: if you use an editable install (pip install -e .) this is not strictly required,
-# but including it helps many CI setups and local runs.
-pythonpath = ["src"]
-
 # ========================================================================
 # mypy configuration - strict checks, target Python 3.11
 # ========================================================================
 [tool.mypy]
 # Target Python version
 python_version = "3.11"
+
+# Explicit root resolution rules to completely prevent duplicate path lookup errors
+mypy_path = "src"
+explicit_package_bases = true
+namespace_packages = true
+
 # Strictness: enforce untyped defs checks and warn on Any returns
 disallow_untyped_defs = true
 check_untyped_defs = true
 warn_return_any = true
 
-# Additional sensible strict settings (recommended)
+# Additional sensible strict settings (required for DataFactor licensing)
 disallow_untyped_calls = true
 disallow_incomplete_defs = true
 warn_unused_ignores = true
 no_implicit_optional = true
 
-# Treat src and tests as packages to be checked
-files = ["src", "tests"]
+# Explicitly discover the src directory context natively
+files = ["src"]
 
 # Allow some third-party stubs to be missing while keeping strictness elsewhere
 ignore_missing_imports = true
-
-# ========================================================================
-# Flake8 configuration - style and linting
-# ========================================================================
-[tool.flake8]
-# Keep lines readable, modern standard
-max-line-length = 120
-# Ignore a few common conflicts with black/modern style and benign formatting rules
-extend-ignore = ["E203", "W503"]
-# Exclude typical virtualenv, build, and test artifacts
-exclude = [
-  ".venv",
-  "venv",
-  "__pycache__",
-  "build",
-  "dist",
-  ".eggs",
-  ".git",
-  ".github",
-]
-
-# ========================================================================
-# Black configuration - code formatter
-# ========================================================================
-[tool.black]
-line-length = 120
-target-version = ["py311"]
-skip-string-normalization = false
-
-# ========================================================================
-# isort configuration - import sorting (compatible with Black)
-# ========================================================================
-[tool.isort]
-profile = "black"
-line_length = 120
-known_first_party = ["api_rate_limiter_gateway"]
-default_section = "THIRDPARTY"
-multi_line_output = 3
-include_trailing_comma = true
