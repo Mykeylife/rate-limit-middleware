@@ -61,8 +61,7 @@ jobs:
 
       - name: Run static type checks with mypy
         run: |
-          export MYPYPATH=src
-          mypy --namespace-packages --explicit-package-bases src/gateway
+          mypy
 
       - name: Run lint with flake8
         run: |
