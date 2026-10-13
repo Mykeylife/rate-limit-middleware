@@ -46,23 +46,23 @@ jobs:
           cache: pip
           cache-dependency-path: ${{ steps.detect-deps.outputs.dep-path }}
 
-      - name: Install dependencies
+      - name: Install dependencies and dev tools
         run: |
           python -m pip install --upgrade pip
+          # Explicitly install development tools first to register third-party type plugins
+          python -m pip install mypy flake8 pytest pytest-cov Flake8-pyproject
+          
+          # Force install the core app packages in editable mode to bind local paths natively
           if [ "${{ steps.detect-deps.outputs.dep-path }}" = "requirements.txt" ]; then
             python -m pip install -r requirements.txt
           else
             python -m pip install -e .
           fi
 
-      - name: Install quality tools
-        run: |
-          python -m pip install mypy flake8 pytest pytest-cov Flake8-pyproject
-
       - name: Run static type checks with mypy
         run: |
           export PYTHONPATH=$GITHUB_WORKSPACE/src
-          mypy -m gateway
+          mypy --explicit-package-bases --namespace-packages -m gateway
 
       - name: Run lint with flake8
         run: |
