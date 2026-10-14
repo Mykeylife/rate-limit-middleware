@@ -25,6 +25,7 @@ dev = [
   "black>=23.9",
   "isort>=5.12",
   "Flake8-pyproject>=1.2.3",
+  "httpx",
 ]
 
 # ========================================================================
@@ -71,7 +72,7 @@ exclude = [
   ".eggs",
   ".git",
   ".github",
-]
+ ]
 
 # ========================================================================
 # Black configuration - code formatter matching flake8 limits
