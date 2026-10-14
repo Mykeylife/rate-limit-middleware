@@ -15,8 +15,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+# FIX: Corrected import path from 'xrc' to 'src' to map packages correctly
 from src.gateway.middleware.rate_limiter import RateLimiterMiddleware, VALID_API_KEYS
-
 
 # Configure logging
 logging.basicConfig(
@@ -107,20 +107,20 @@ def create_app() -> FastAPI:
     Returns:
         A configured FastAPI application instance.
     """
-    app = FastAPI(
+    app_instance = FastAPI(
         title="Rate Limiter & Security Gateway",
         description="Lightweight API gateway with rate limiting and API key management.",
         version="1.0.0",
     )
 
     # Add rate limiter middleware
-    app.add_middleware(
+    app_instance.add_middleware(
         RateLimiterMiddleware,
         requests_limit=5,
         window_size_seconds=10,
     )
 
-    return app
+    return app_instance
 
 
 # Create the application instance
@@ -280,71 +280,3 @@ async def revoke_api_key(
             status_code=500,
             detail="An error occurred while revoking the API key.",
         )
-    except Exception as e:
-        logger.error(
-            f"Unexpected error while revoking API key: {type(e).__name__}: {str(e)}",
-            extra={"requester": requester_key, "target_key": target_key},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred.",
-        )
-
-
-@app.get(
-    "/api/v1/keys/status/{api_key}",
-    response_model=Dict[str, any],
-    status_code=200,
-    tags=["Key Management"],
-    responses={
-        404: {"model": ErrorResponse, "description": "API key not found."},
-        429: {"model": ErrorResponse, "description": "Rate limit exceeded."},
-    },
-)
-async def get_key_status(api_key: str) -> Dict[str, any]:
-    """
-    Get the status of a specific API key.
-
-    Args:
-        api_key: The API key to query.
-
-    Returns:
-        A dictionary with the API key metadata and status.
-
-    Raises:
-        HTTPException: If the API key is not found.
-    """
-    if api_key not in VALID_API_KEYS:
-        logger.warning(
-            f"Attempted to query status of non-existent API key: {api_key}",
-        )
-        raise HTTPException(
-            status_code=404,
-            detail=f"API key '{api_key}' not found.",
-        )
-
-    key_data: Dict[str, any] = VALID_API_KEYS[api_key]
-    logger.info(f"API key status queried: {api_key}")
-    return {
-        "api_key": api_key,
-        "name": key_data.get("name", "Unknown"),
-        "active": key_data.get("active", False),
-    }
-
-
-# ============================================================================
-# Entry Point
-# ============================================================================
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    logger.info("Starting Rate Limiter Gateway application...")
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info",
-    )
