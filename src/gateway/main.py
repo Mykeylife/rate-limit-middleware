@@ -9,7 +9,7 @@ constraints (5 requests per 10 seconds).
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
