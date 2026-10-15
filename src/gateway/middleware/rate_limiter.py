@@ -11,18 +11,11 @@ Thread-safe using thread locks for in-memory state management.
 import threading
 import time
 from collections import deque
-from typing import Dict, Optional
+from typing import Dict, Generator, Optional
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
-
-# Simulated database of valid API keys
-VALID_API_KEYS: Dict[str, dict] = {
-    "sk-test-001": {"name": "Test Client 1", "active": True},
-    "sk-test-002": {"name": "Test Client 2", "active": True},
-    "sk-prod-001": {"name": "Production Client", "active": True},
-}
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
@@ -57,8 +50,9 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         return api_key
 
     def _validate_api_key(self, api_key: str) -> bool:
-        """Validate if an API key exists and is active."""
-        key_data: Optional[dict] = VALID_API_KEYS.get(api_key)
+        """Validate if an API key exists and is active using SQLite persistence."""
+        from gateway.database import db_manager
+        key_data = db_manager.fetch_key_status(api_key)
         if key_data is None:
             return False
         return bool(key_data.get("active", False))
