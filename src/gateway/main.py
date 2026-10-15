@@ -15,8 +15,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-# FIX: Corrected import path from 'xrc' to 'src' to map packages correctly
-from src.gateway.middleware.rate_limiter import RateLimiterMiddleware, VALID_API_KEYS
+# FIX: Dropped 'src.' prefix so imports align with the active PYTHONPATH root
+from gateway.middleware.rate_limiter import RateLimiterMiddleware, VALID_API_KEYS
 
 # Configure logging
 logging.basicConfig(
