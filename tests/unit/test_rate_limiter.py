@@ -7,18 +7,18 @@ Tests cover:
 3. Missing API key header validation (400 Bad Request).
 4. Invalid API key validation (401 Unauthorized).
 5. Successful API Key Revocation (200 OK).
-6. Invalid JSON payload schema schema handling (400 Bad Request).
+6. Invalid JSON payload schema handling (400 Bad Request).
 
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 All tests are self-contained and suitable for CI/CD environments.
 """
 
-from typing import Dict, Generator
+from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
 from gateway.main import app
-from gateway.middleware.rate_limiter import VALID_API_KEYS
+from gateway.database import db_manager
 
 
 @pytest.fixture
@@ -45,20 +45,24 @@ def reset_rate_limiter() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def reset_api_keys() -> Generator[None, None, None]:
-    """Fixture to reset API key states before each test."""
-    # Store original states
-    original_states: Dict[str, bool] = {}
-    for key, data in VALID_API_KEYS.items():
-        original_states[key] = data.get("active", True)
-        data["active"] = True
+def reset_database_keys() -> Generator[None, None, None]:
+    """
+    Fixture to reset the persistent database keys to active before each test.
+
+    Ensures structural test isolation across state updates natively.
+    """
+    # Force reset all keys back to active status inside the SQLite test layer
+    with db_manager.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE api_keys SET is_active = 1")
+        conn.commit()
 
     yield
 
-    # Restore original states
-    for key, original_active in original_states.items():
-        if key in VALID_API_KEYS:
-            VALID_API_KEYS[key]["active"] = original_active
+    with db_manager.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE api_keys SET is_active = 1")
+        conn.commit()
 
 
 class TestRateLimiterMiddleware:
@@ -118,7 +122,7 @@ class TestRateLimiterMiddleware:
     def test_missing_api_key(self, client: TestClient) -> None:
         """Verify that a request without the X-API-Key header is rejected with HTTP 400."""
         # Arrange
-        headers: Dict[str, str] = {}  # No X-API-Key header
+        headers = {}  # No X-API-Key header
         endpoint = "/api/v1/health"
 
         # Act
@@ -174,20 +178,23 @@ class TestRateLimiterMiddleware:
         response_body = response.json()
         assert response_body["success"] is True
         assert response_body["api_key"] == target_revoke_key
-        assert VALID_API_KEYS[target_revoke_key]["active"] is False
+
+        # Verify persistence changes inside our actual database layer fields
+        key_status = db_manager.fetch_key_status(target_revoke_key)
+        assert key_status is not None
+        assert key_status["active"] is False
 
     def test_revoke_key_invalid_payload(self, client: TestClient) -> None:
         """Verify that a malformed JSON payload triggers a 400 Bad Request validation response."""
         # Arrange
         valid_requester_key = "sk-prod-001"
         headers = {"X-API-Key": valid_requester_key}
-        # Intentionally malformed payload: passing an empty dictionary (missing required 'api_key')
-        invalid_payload: Dict[str, str] = {}
+        invalid_payload = {}
 
         # Act
         response = client.post("/api/v1/keys/revoke", json=invalid_payload, headers=headers)
 
-        # Assert: Custom error handler should map this configuration payload structure to an HTTP 400
+        # Assert
         assert response.status_code == 400, (
             f"Expected 400 for malformed payload, got {response.status_code}. Response: {response.json()}"
         )
