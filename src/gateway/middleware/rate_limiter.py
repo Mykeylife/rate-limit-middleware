@@ -11,7 +11,7 @@ Thread-safe using thread locks for in-memory state management.
 import threading
 import time
 from collections import deque
-from typing import Dict, Generator, Optional
+from typing import Dict, Optional
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
