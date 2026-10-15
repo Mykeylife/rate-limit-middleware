@@ -144,14 +144,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         f"Validation failure intercepted: {str(exc.errors())}",
         extra={"path": request.url.path, "method": request.method},
     )
-    
-    # Consolidate raw location parameters into a polished message string
+
     error_messages = []
     for error in exc.errors():
         loc = " -> ".join(str(x) for x in error.get("loc", []))
         msg = error.get("msg", "Invalid value")
         error_messages.append(f"[{loc}]: {msg}")
-    
+
     combined_message = "; ".join(error_messages)
 
     return JSONResponse(
