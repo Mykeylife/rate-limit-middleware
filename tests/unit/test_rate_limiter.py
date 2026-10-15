@@ -7,6 +7,7 @@ Tests cover:
 3. Missing API key header validation (400 Bad Request).
 4. Invalid API key validation (401 Unauthorized).
 5. Successful API Key Revocation (200 OK).
+6. Invalid JSON payload schema schema handling (400 Bad Request).
 
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 All tests are self-contained and suitable for CI/CD environments.
@@ -174,3 +175,22 @@ class TestRateLimiterMiddleware:
         assert response_body["success"] is True
         assert response_body["api_key"] == target_revoke_key
         assert VALID_API_KEYS[target_revoke_key]["active"] is False
+
+    def test_revoke_key_invalid_payload(self, client: TestClient) -> None:
+        """Verify that a malformed JSON payload triggers a 400 Bad Request validation response."""
+        # Arrange
+        valid_requester_key = "sk-prod-001"
+        headers = {"X-API-Key": valid_requester_key}
+        # Intentionally malformed payload: passing an empty dictionary (missing required 'api_key')
+        invalid_payload: Dict[str, str] = {}
+
+        # Act
+        response = client.post("/api/v1/keys/revoke", json=invalid_payload, headers=headers)
+
+        # Assert: Custom error handler should map this configuration payload structure to an HTTP 400
+        assert response.status_code == 400, (
+            f"Expected 400 for malformed payload, got {response.status_code}. Response: {response.json()}"
+        )
+        error_body = response.json()
+        assert error_body["error"] == "Bad Request"
+        assert "Payload schema validation failed" in error_body["message"]
