@@ -6,7 +6,7 @@ and atomic transactions for persistent API token key records using SQLite.
 """
 
 import sqlite3
-from typing import Dict, Optional
+from typing import Dict, Any, Optional
 
 
 class GatewayDatabase:
@@ -25,14 +25,15 @@ class GatewayDatabase:
         """Initializes foundational database schema layouts on application boot."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            # FIX: Corrected standard SQLite table creation syntax constraints
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS api_keys (
                     api_key TEXT PRIMARY KEY,
-                    client_name TEXT NOT EXISTS OR TEXT NOT NULL,
+                    client_name TEXT NOT NULL,
                     is_active INTEGER NOT NULL DEFAULT 1
                 )
             """)
-            
+
             # Seed foundational test keys matching original environment structures safely
             seed_data = [
                 ("sk-test-001", "Test Client 1", 1),
@@ -45,7 +46,7 @@ class GatewayDatabase:
             """, seed_data)
             conn.commit()
 
-    def fetch_key_status(self, api_key: str) -> Optional[Dict[str, any]]:
+    def fetch_key_status(self, api_key: str) -> Optional[Dict[str, Any]]:
         """Queries client authentication parameters relative to an incoming key."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -69,7 +70,7 @@ class GatewayDatabase:
             cursor.execute("SELECT 1 FROM api_keys WHERE api_key = ?", (api_key,))
             if cursor.fetchone() is None:
                 return False
-                
+
             cursor.execute(
                 "UPDATE api_keys SET is_active = 0 WHERE api_key = ?", 
                 (api_key,)
