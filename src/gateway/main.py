@@ -12,10 +12,10 @@ import logging
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-# FIX: Dropped 'src.' prefix so imports align with the active PYTHONPATH root
 from gateway.middleware.rate_limiter import RateLimiterMiddleware, VALID_API_KEYS
 
 # Configure logging
@@ -91,7 +91,7 @@ class HealthResponse(BaseModel):
 
 
 # ============================================================================
-# FastAPI Application
+# FastAPI Application Factory
 # ============================================================================
 
 
@@ -132,18 +132,41 @@ app: FastAPI = create_app()
 # ============================================================================
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """
+    Handle request payload validation errors globally.
+
+    Converts raw internal validation trace parameters into our standardized
+    ErrorResponse data architecture format cleanly.
+    """
+    logger.warning(
+        f"Validation failure intercepted: {str(exc.errors())}",
+        extra={"path": request.url.path, "method": request.method},
+    )
+    
+    # Consolidate raw location parameters into a polished message string
+    error_messages = []
+    for error in exc.errors():
+        loc = " -> ".join(str(x) for x in error.get("loc", []))
+        msg = error.get("msg", "Invalid value")
+        error_messages.append(f"[{loc}]: {msg}")
+    
+    combined_message = "; ".join(error_messages)
+
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "Bad Request",
+            "message": f"Payload schema validation failed: {combined_message}",
+            "status_code": 400,
+        },
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    """
-    Handle HTTPException globally.
-
-    Args:
-        request: The incoming HTTP request.
-        exc: The HTTPException raised.
-
-    Returns:
-        A JSONResponse with error details.
-    """
+    """Handle HTTPException globally."""
     logger.warning(
         f"HTTPException raised: {exc.status_code} - {exc.detail}",
         extra={"path": request.url.path, "method": request.method},
@@ -160,16 +183,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """
-    Handle unexpected exceptions globally.
-
-    Args:
-        request: The incoming HTTP request.
-        exc: The exception raised.
-
-    Returns:
-        A JSONResponse with a generic error message.
-    """
+    """Handle unexpected exceptions globally."""
     logger.error(
         f"Unhandled exception: {type(exc).__name__}: {str(exc)}",
         extra={"path": request.url.path, "method": request.method},
@@ -197,12 +211,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     tags=["Health"],
 )
 async def health_check() -> HealthResponse:
-    """
-    Health check endpoint (no rate limiting required).
-
-    Returns:
-        A HealthResponse indicating the service is operational.
-    """
+    """Health check endpoint (no rate limiting required)."""
     logger.info("Health check endpoint accessed.")
     return HealthResponse(
         status="healthy",
@@ -227,27 +236,10 @@ async def revoke_api_key(
     request: Request, 
     payload: RevokeKeyRequest
 ) -> RevokeKeyResponse:
-    """
-    Revoke (deactivate) an active API key.
-
-    This endpoint requires a valid X-API-Key header and is subject to
-    rate limiting. The API key to revoke is provided in the request body.
-
-    Args:
-        request: The incoming HTTP request.
-        payload: The request body containing the API key to revoke.
-
-    Returns:
-        A RevokeKeyResponse with revocation status.
-
-    Raises:
-        HTTPException: If the API key to revoke is not found.
-    """
-    # Extract the X-API-Key header for logging/audit
+    """Revoke (deactivate) an active API key."""
     requester_key: Optional[str] = request.headers.get("X-API-Key")
     target_key: str = payload.api_key
 
-    # Validate that the target API key exists
     if target_key not in VALID_API_KEYS:
         logger.warning(
             f"Attempted to revoke non-existent API key: {target_key}",
@@ -258,7 +250,6 @@ async def revoke_api_key(
             detail=f"API key '{target_key}' not found.",
         )
 
-    # Mark the API key as inactive
     try:
         VALID_API_KEYS[target_key]["active"] = False
         logger.info(
