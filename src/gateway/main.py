@@ -16,7 +16,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from gateway.middleware.rate_limiter import RateLimiterMiddleware, VALID_API_KEYS
+# FIX: Dropped the deleted 'VALID_API_KEYS' reference to support full SQLite database tracking mapping
+from gateway.middleware.rate_limiter import RateLimiterMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +113,10 @@ def create_app() -> FastAPI:
         description="Lightweight API gateway with rate limiting and API key management.",
         version="1.0.0",
     )
+
+    # Initialize the local persistent SQLite tables layout on system boot cleanly
+    from gateway.database import db_manager
+    db_manager.bootstrap_tables()
 
     # Add rate limiter middleware
     app_instance.add_middleware(
@@ -235,11 +240,15 @@ async def revoke_api_key(
     request: Request, 
     payload: RevokeKeyRequest
 ) -> RevokeKeyResponse:
-    """Revoke (deactivate) an active API key."""
+    """Revoke (deactivate) an active API key inside the SQLite layer."""
     requester_key: Optional[str] = request.headers.get("X-API-Key")
     target_key: str = payload.api_key
 
-    if target_key not in VALID_API_KEYS:
+    # Validate and mark the database target API key as inactive using atomic transactions
+    from gateway.database import db_manager
+    success = db_manager.deactivate_key(target_key)
+
+    if not success:
         logger.warning(
             f"Attempted to revoke non-existent API key: {target_key}",
             extra={"requester": requester_key},
@@ -249,24 +258,12 @@ async def revoke_api_key(
             detail=f"API key '{target_key}' not found.",
         )
 
-    try:
-        VALID_API_KEYS[target_key]["active"] = False
-        logger.info(
-            f"API key revoked successfully: {target_key}",
-            extra={"requester": requester_key},
-        )
-        return RevokeKeyResponse(
-            success=True,
-            message=f"API key '{target_key}' has been successfully revoked.",
-            api_key=target_key,
-        )
-    except KeyError as e:
-        logger.error(
-            f"KeyError while revoking API key: {str(e)}",
-            extra={"requester": requester_key, "target_key": target_key},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while revoking the API key.",
-        )
+    logger.info(
+        f"API key revoked successfully via SQLite: {target_key}",
+        extra={"requester": requester_key},
+    )
+    return RevokeKeyResponse(
+        success=True,
+        message=f"API key '{target_key}' has been successfully revoked.",
+        api_key=target_key,
+    )
