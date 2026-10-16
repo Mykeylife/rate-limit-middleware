@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+import { Key, ShieldAlert, CheckCircle, XCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+
+export default function ApiKeyDashboard() {
+  // State management for API keys inventory array map lists
+  const [apiKeys, setApiKeys] = useState([
+    { api_key: "sk-test-001", client_name: "Test Client 1", is_active: true },
+    { api_key: "sk-test-002", client_name: "Test Client 2", is_active: true },
+    { api_key: "sk-prod-001", client_name: "Production Client", is_active: true }
+  ]);
+  
+  const [newClientName, setNewClientName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Simulated metrics tracking based on array states
+  const totalKeys = apiKeys.length;
+  const activeKeys = apiKeys.filter(k => k.is_active).length;
+  const revokedKeys = totalKeys - activeKeys;
+
+  // Handle generating a new API key via mock payload configuration mapping
+  const handleCreateKey = (e) => {
+    e.preventDefault();
+    if (!newClientName.trim()) return;
+
+    const mockNewKey = {
+      api_key: `sk-generated-${Math.random().toString(36).substr(2, 5)}`,
+      client_name: newClientName,
+      is_active: true
+    };
+
+    setApiKeys([...apiKeys, mockNewKey]);
+    setNewClientName("");
+  };
+
+  // Triggers atomic key revocation matching your backend POST handler route architecture
+  const handleRevokeKey = async (targetKey) => {
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      // In production, this maps directly to your FastAPI proxy route endpoint layout:
+      // await fetch('/api/v1/keys/revoke', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json', 'X-API-Key': 'sk-prod-001' },
+      //   body: JSON.stringify({ api_key: targetKey })
+      // });
+      
+      setApiKeys(apiKeys.map(key => 
+        key.api_key === targetKey ? { ...key, is_active: false } : key
+      ));
+    } catch (err) {
+      setErrorMessage("Failed to safely communicate key revocation parameters to SQLite.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-6">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-6 mb-8">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+              <Key className="text-indigo-400 h-8 w-8" />
+              API Key Management Portal
+            </h1>
+            <p className="text-slate-400 mt-2">Manage access credentials and view metrics for the sliding window rate limiter gateway.</p>
+          </div>
+          <div className="mt-4 md:mt-0 flex gap-3">
+            <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg font-medium transition">
+              <RefreshCw className="h-4 w-4" /> Refresh Sync
+            </button>
+          </div>
+        </header>
+
+        {/* Global Alert Notification Bar */}
+        {errorMessage && (
+          <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-xl mb-6 flex items-center gap-3">
+            <ShieldAlert className="h-5 w-5 text-red-400" />
+            <span className="text-sm font-medium">{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Analytics Statistics Row Summary Layout */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-slate-800/60 border border-slate-700 p-6 rounded-2xl flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">Total Credentials</p>
+              <h3 className="text-3xl font-black text-white mt-1">{totalKeys}</h3>
+            </div>
+            <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400"><Key className="h-6 w-6" /></div>
+          </div>
+
+          <div className="bg-slate-800/60 border border-slate-700 p-6 rounded-2xl flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">Active Token Streams</p>
+              <h3 className="text-3xl font-black text-emerald-400 mt-1">{activeKeys}</h3>
+            </div>
+            <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400"><CheckCircle className="h-6 w-6" /></div>
+          </div>
+
+          <div className="bg-slate-800/60 border border-slate-700 p-6 rounded-2xl flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">Revoked Keys</p>
+              <h3 className="text-3xl font-black text-rose-400 mt-1">{revokedKeys}</h3>
+            </div>
+            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400"><XCircle className="h-6 w-6" /></div>
+          </div>
+        </section>
+
+        {/* Action Panel Split Column Layout Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Key Issuance Creation Module Form Component */}
+          <div className="bg-slate-800/40 border border-slate-800 p-6 rounded-2xl h-fit">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Plus className="text-indigo-400 h-5 w-5" /> Issue New Token
+            </h2>
+            <form onSubmit={handleCreateKey} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Client Profile Name</label>
+                <input 
+                  type="text" 
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="e.g. Analytics Services microservice" 
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition text-sm"
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-600/20"
+              >
+                <Plus className="h-4 w-4" /> Generate Access Key
+              </button>
+            </form>
+          </div>
+
+          {/* Key Inventory Management Data Table Block */}
+          <div className="lg:col-span-2 bg-slate-800/40 border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-800">
+              <h2 className="text-xl font-bold text-white">Active Database Inventory</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-800/80 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    <th className="px-6 py-4">Client Name</th>
+                    <th className="px-6 py-4">API Token Value</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-sm">
+                  {apiKeys.map((key) => (
+                    <tr key={key.api_key} className="hover:bg-slate-800/30 transition">
+                      <td className="px-6 py-4 font-semibold text-white">{key.client_name}</td>
+                      <td className="px-6 py-4 font-mono text-slate-300">{key.api_key}</td>
+                      <td className="px-6 py-4">
+                        {key.is_active ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                            Revoked
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {key.is_active ? (
+                          <button 
+                            disabled={isLoading}
+                            onClick={() => handleRevokeKey(key.api_key)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-3 py-1.5 rounded-lg border border-rose-500/20 transition disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Revoke
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-medium italic">Deactivated</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
