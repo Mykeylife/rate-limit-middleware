@@ -9,14 +9,14 @@ constraints (5 requests per 10 seconds).
 """
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-# FIX: Dropped the deleted 'VALID_API_KEYS' reference to support full SQLite database tracking mapping
 from gateway.middleware.rate_limiter import RateLimiterMiddleware
 
 # Configure logging
@@ -201,6 +201,33 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             "status_code": 500,
         },
     )
+
+
+# ============================================================================
+# Administrative UI Routes
+# ============================================================================
+
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Admin UI"])
+async def render_admin_dashboard() -> HTMLResponse:
+    """
+    Renders the interactive administrative control panel portal natively.
+
+    Reads the static dashboard layout file configuration schema directly from 
+    the templates folder structure workspace cleanly.
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(current_dir, "templates", "dashboard.html")
+    
+    try:
+        with open(template_path, "r", encoding="utf-8") as file:
+            html_content = file.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Dashboard template assets missing from gateway layout compilation tree."
+        )
 
 
 # ============================================================================
