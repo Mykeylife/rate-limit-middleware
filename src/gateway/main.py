@@ -235,6 +235,15 @@ async def render_admin_dashboard() -> HTMLResponse:
 # ============================================================================
 
 
+@app.get("/healthz", status_code=200, tags=["Infrastructure"])
+async def infrastructure_health_probe() -> dict:
+    """
+    Unauthenticated infrastructure health probe endpoint.
+    Bypasses the RateLimiterMiddleware to allow automated status checks.
+    """
+    return {"status": "ok"}
+
+
 @app.get(
     "/api/v1/health",
     response_model=HealthResponse,
