@@ -8,6 +8,7 @@ Tests cover:
 4. Invalid API key validation (401 Unauthorized).
 5. Successful API Key Revocation (200 OK).
 6. Invalid JSON payload schema handling (400 Bad Request).
+7. Infrastructure Health Probe verification (200 OK).
 
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 All tests are self-contained and suitable for CI/CD environments.
@@ -201,3 +202,9 @@ class TestRateLimiterMiddleware:
         error_body = response.json()
         assert error_body["error"] == "Bad Request"
         assert "Payload schema validation failed" in error_body["message"]
+
+    def test_infrastructure_health_probe(self, client: TestClient) -> None:
+        """Asserts that GET /healthz responds with 200 OK and expected structure."""
+        response = client.get("/healthz")
+        assert response.status_code == 200
+        assert response.json() == {"status": "healthy"}
