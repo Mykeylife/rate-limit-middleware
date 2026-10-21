@@ -9,12 +9,16 @@ Tests cover:
 5. Successful API Key Revocation (200 OK).
 6. Invalid JSON payload schema handling (400 Bad Request).
 7. Infrastructure Health Probe verification (200 OK).
+8. Global Server Error interceptors validation (500 Internal Server Error).
+9. Missing Dashboard template assets fallback validation (404 Not Found).
+10. Database edge lookup parameters execution mapping.
 
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 All tests are self-contained and suitable for CI/CD environments.
 """
 
 from typing import Generator
+import unittest.mock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -208,3 +212,32 @@ class TestRateLimiterMiddleware:
         response = client.get("/healthz")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy"}
+
+    def test_global_exception_handler(self, client: TestClient) -> None:
+        """Forces an unhandled server exception to exercise global 500 handler blocks."""
+        with unittest.mock.patch("gateway.database.db_manager.fetch_key_status", side_effect=Exception("Crash Simulation")):
+            valid_api_key = "sk-test-001"
+            headers = {"X-API-Key": valid_api_key}
+            response = client.get("/api/v1/health", headers=headers)
+            
+            assert response.status_code == 500
+            assert response.json()["error"] == "Internal Server Error"
+
+    def test_dashboard_template_missing_exception(self, client: TestClient) -> None:
+        """Forces a FileNotFoundError on the dashboard route to cover fallback 404 block logic."""
+        with unittest.mock.patch("builtins.open", side_effect=FileNotFoundError()):
+            response = client.get("/dashboard")
+            
+            assert response.status_code == 404
+            assert "Dashboard template assets missing" in response.json()["message"]
+
+    def test_revoke_non_existent_key(self, client: TestClient) -> None:
+        """Attempts to revoke a non-existent API key to cover negative match blocks."""
+        valid_requester_key = "sk-prod-001"
+        headers = {"X-API-Key": valid_requester_key}
+        payload = {"api_key": "sk-non-existent-999"}
+        
+        response = client.post("/api/v1/keys/revoke", json=payload, headers=headers)
+        assert response.status_code == 404
+        assert "does not exist" in response.json()["message"]
+
