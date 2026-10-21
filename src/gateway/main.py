@@ -44,7 +44,7 @@ class RevokeKeyRequest(BaseModel):
         ..., 
         min_length=1, 
         description="The API key to revoke.",
-        example="sk-test-001"
+        json_schema_extra={"example": "sk-test-001"}
     )
 
 
@@ -87,7 +87,7 @@ class HealthResponse(BaseModel):
         message: Health check message.
     """
 
-    status: str = Field(description="Health status.", example="healthy")
+    status: str = Field(description="Health status.", json_schema_extra={"example": "healthy"})
     message: str = Field(description="Health check message.")
 
 
@@ -241,7 +241,7 @@ async def infrastructure_health_probe() -> dict:
     Unauthenticated infrastructure health probe endpoint.
     Bypasses the RateLimiterMiddleware to allow automated status checks.
     """
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 
 @app.get(
@@ -256,50 +256,4 @@ async def health_check() -> HealthResponse:
     return HealthResponse(
         status="healthy",
         message="The rate limiter gateway is operational.",
-    )
-
-
-@app.post(
-    "/api/v1/keys/revoke",
-    response_model=RevokeKeyResponse,
-    status_code=200,
-    tags=["Key Management"],
-    responses={
-        400: {"model": ErrorResponse, "description": "Missing or invalid payload."},
-        401: {"model": ErrorResponse, "description": "Unauthorized (invalid API key)."},
-        404: {"model": ErrorResponse, "description": "API key not found."},
-        429: {"model": ErrorResponse, "description": "Rate limit exceeded."},
-        500: {"model": ErrorResponse, "description": "Internal server error."},
-    },
-)
-async def revoke_api_key(
-    request: Request, 
-    payload: RevokeKeyRequest
-) -> RevokeKeyResponse:
-    """Revoke (deactivate) an active API key inside the SQLite layer."""
-    requester_key: Optional[str] = request.headers.get("X-API-Key")
-    target_key: str = payload.api_key
-
-    # Validate and mark the database target API key as inactive using atomic transactions
-    from gateway.database import db_manager
-    success = db_manager.deactivate_key(target_key)
-
-    if not success:
-        logger.warning(
-            f"Attempted to revoke non-existent API key: {target_key}",
-            extra={"requester": requester_key},
-        )
-        raise HTTPException(
-            status_code=404,
-            detail=f"API key '{target_key}' not found.",
-        )
-
-    logger.info(
-        f"API key revoked successfully via SQLite: {target_key}",
-        extra={"requester": requester_key},
-    )
-    return RevokeKeyResponse(
-        success=True,
-        message=f"API key '{target_key}' has been successfully revoked.",
-        api_key=target_key,
     )
