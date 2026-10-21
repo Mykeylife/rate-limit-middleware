@@ -11,7 +11,7 @@ constraints (5 requests per 10 seconds).
 import logging
 import os
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -255,4 +255,41 @@ async def health_check() -> HealthResponse:
     return HealthResponse(
         status="healthy",
         message="The rate limiter gateway is operational.",
+    )
+
+
+@app.post(
+    "/api/v1/keys/revoke",
+    response_model=RevokeKeyResponse,
+    status_code=200,
+    tags=["Key Management"],
+    responses={
+        400: {"model": ErrorResponse, "description": "Missing or invalid payload."},
+        401: {"model": ErrorResponse, "description": "Unauthorized access."},
+    },
+)
+async def revoke_api_key(payload: RevokeKeyRequest) -> RevokeKeyResponse:
+    """
+    Administrative endpoint to revoke an active API key.
+    Updates persistence tracking instantly to deny future traffic requests.
+    """
+    from gateway.database import db_manager
+
+    target_key = payload.api_key
+    key_data = db_manager.fetch_key_status(target_key)
+
+    if key_data is None:
+        raise HTTPException(status_code=404, detail="The requested API key does not exist.")
+
+    # Force database persistence deactivation sequence
+    with db_manager.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE api_keys SET is_active = 0 WHERE api_key = ?", (target_key,))
+        conn.commit()
+
+    logger.info(f"API key successfully revoked: {target_key}")
+    return RevokeKeyResponse(
+        success=True,
+        message="API key has been successfully deactivated.",
+        api_key=target_key,
     )
