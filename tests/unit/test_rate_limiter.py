@@ -219,7 +219,6 @@ class TestRateLimiterMiddleware:
             valid_api_key = "sk-test-001"
             headers = {"X-API-Key": valid_api_key}
             response = client.get("/api/v1/health", headers=headers)
-            
             assert response.status_code == 500
             assert response.json()["error"] == "Internal Server Error"
 
@@ -227,7 +226,6 @@ class TestRateLimiterMiddleware:
         """Forces a FileNotFoundError on the dashboard route to cover fallback 404 block logic."""
         with unittest.mock.patch("builtins.open", side_effect=FileNotFoundError()):
             response = client.get("/dashboard")
-            
             assert response.status_code == 404
             assert "Dashboard template assets missing" in response.json()["message"]
 
@@ -236,8 +234,8 @@ class TestRateLimiterMiddleware:
         valid_requester_key = "sk-prod-001"
         headers = {"X-API-Key": valid_requester_key}
         payload = {"api_key": "sk-non-existent-999"}
-        
         response = client.post("/api/v1/keys/revoke", json=payload, headers=headers)
         assert response.status_code == 404
         assert "does not exist" in response.json()["message"]
 
+    def test_database_manager_edge_cases(self) -> None:
