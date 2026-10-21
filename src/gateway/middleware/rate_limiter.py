@@ -95,6 +95,10 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process an incoming request through the rate limiter."""
+        # Allow the unauthenticated infrastructure health probe to pass through directly
+        if request.url.path == "/healthz":
+            return await call_next(request)
+
         # Extract API key from header
         api_key: Optional[str] = self._extract_api_key(request)
 
