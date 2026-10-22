@@ -24,7 +24,7 @@ def reset_database_and_windows() -> Generator[None, None, None]:
     """Fixture to reset database status and clear middleware state."""
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE api_keys SET active = 1")
+        cursor.execute("UPDATE api_keys SET is_active = 1")
         conn.commit()
 
     for middleware in app.user_middleware:
@@ -35,7 +35,7 @@ def reset_database_and_windows() -> Generator[None, None, None]:
 
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE api_keys SET active = 1")
+        cursor.execute("UPDATE api_keys SET is_active = 1")
         conn.commit()
 
 
