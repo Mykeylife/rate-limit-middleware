@@ -20,13 +20,21 @@ def client() -> TestClient:
 
 
 @pytest.fixture(autouse=True)
-def reset_database_keys() -> Generator[None, None, None]:
-    """Fixture to reset the database keys status before and after tests."""
+def reset_database_and_windows() -> Generator[None, None, None]:
+    """Fixture to reset database status and clear middleware rate limit tracking state."""
+    # Reset local database configuration columns
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE api_keys SET active = 1")
         conn.commit()
+        
+    # Dynamically clear out in-memory rate limiter windows before every test item runs
+    for middleware in app.user_middleware:
+        if hasattr(middleware.cls, "request_windows"):
+            middleware.options.get("request_windows", {}).clear()
+            
     yield
+    
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE api_keys SET active = 1")
@@ -46,12 +54,6 @@ class TestRateLimiterMiddleware:
     def test_rate_limit_triggered(self, client: TestClient) -> None:
         """Verify rapid sequential requests trigger HTTP 429 when threshold breached."""
         headers = {"X-API-Key": "sk-test-002"}
-        
-        # Clear existing in-memory window logs on the application instance to remain isolated
-        for middleware in app.user_middleware:
-            if hasattr(middleware.cls, "request_windows"):
-                middleware.options.get("request_windows", {}).clear()
-
         limit_triggered = False
         for _ in range(15):
             response = client.get("/api/v1/health", headers=headers)
@@ -99,7 +101,7 @@ class TestRateLimiterMiddleware:
 
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
-        headers = {"X-API-Key": "sk-test-001"}
+        headers = {"X-API-Key": "sk-test-003"}
         with unittest.mock.patch("gateway.middleware.rate_limiter.db_manager.fetch_key_status", side_effect=Exception("Database crash")):
             response = client.get("/api/v1/health", headers=headers)
             assert response.status_code == 500
@@ -109,7 +111,7 @@ class TestRateLimiterMiddleware:
 
     def test_missing_dashboard_template_fallback(self, client: TestClient) -> None:
         """Verify fallback routing behaviors on resource lookups with valid credentials provided."""
-        headers = {"X-API-Key": "sk-test-001"}
+        headers = {"X-API-Key": "sk-test-004"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
         assert response.status_code in [400, 404]
 
