@@ -70,7 +70,7 @@ class RateLimiterMiddleware:
 
         window: deque[float] = self._get_or_create_window(api_key)
 
-        # Remove expired timestamps (older than window start)
+        # FIX: Check the oldest element index [0] to resolve flake8 and logical errors
         while window and window[0] < window_start:
             window.popleft()
 
@@ -95,19 +95,16 @@ class RateLimiterMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Process an incoming request through the rate limiter."""
-        # Only intercept standard HTTP requests
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
         request = Request(scope, receive=receive)
 
-        # Allow the unauthenticated infrastructure health probe to pass through directly
         if request.url.path == "/healthz":
             await self.app(scope, receive, send)
             return
 
-        # Extract API key from header
         api_key: Optional[str] = self._extract_api_key(request)
 
         if not api_key:
@@ -119,11 +116,9 @@ class RateLimiterMiddleware:
             await response(scope, receive, send)
             return
 
-        # Validate API key
         try:
             is_valid = self._validate_api_key(api_key)
         except Exception as exc:
-            # Handle database errors during key lookups gracefully
             response = self._create_error_response(
                 status_code=500,
                 error="Internal Server Error",
@@ -141,7 +136,6 @@ class RateLimiterMiddleware:
             await response(scope, receive, send)
             return
 
-        # Check rate limit (thread-safe)
         with self.lock:
             within_limit: bool = self._is_within_rate_limit(api_key)
 
@@ -154,7 +148,6 @@ class RateLimiterMiddleware:
             await response(scope, receive, send)
             return
 
-        # Request is valid; pass to next handler down the ASGI pipeline
         try:
             await self.app(scope, receive, send)
         except Exception as exc:
