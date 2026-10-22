@@ -120,7 +120,19 @@ class RateLimiterMiddleware:
             return
 
         # Validate API key
-        if not self._validate_api_key(api_key):
+        try:
+            is_valid = self._validate_api_key(api_key)
+        except Exception as exc:
+            # Handle database errors during key lookups gracefully
+            response = self._create_error_response(
+                status_code=500,
+                error="Internal Server Error",
+                message=str(exc),
+            )
+            await response(scope, receive, send)
+            return
+
+        if not is_valid:
             response = self._create_error_response(
                 status_code=401,
                 error="Unauthorized",
@@ -146,7 +158,6 @@ class RateLimiterMiddleware:
         try:
             await self.app(scope, receive, send)
         except Exception as exc:
-            # Captures downstream application errors cleanly without TaskGroups
             response = self._create_error_response(
                 status_code=500,
                 error="Internal Server Error",
