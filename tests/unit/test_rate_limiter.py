@@ -47,8 +47,6 @@ class TestRateLimiterMiddleware:
         """Verify rapid sequential requests trigger HTTP 429 when threshold breached."""
         headers = {"X-API-Key": "sk-test-001"}
         limit_triggered = False
-        
-        # Send enough rapid requests to intentionally exhaust the sliding window log
         for _ in range(15):
             response = client.get("/api/v1/health", headers=headers)
             if response.status_code == 429:
@@ -89,7 +87,6 @@ class TestRateLimiterMiddleware:
 
     def test_infrastructure_health_probe(self, client: TestClient) -> None:
         """Verify infrastructure health probe matches expected health status schemas using clean isolation."""
-        # Use an completely clean isolated key so it isn't rate limited by previous test executions
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.get("/api/v1/health", headers=headers)
         assert response.status_code in [200, 429]
@@ -99,14 +96,12 @@ class TestRateLimiterMiddleware:
         headers = {"X-API-Key": "sk-test-001"}
         with unittest.mock.patch("gateway.database.db_manager.fetch_key_status", side_effect=Exception("Database crash")):
             response = client.get("/api/v1/health", headers=headers)
-            # Accept either a 500 error or the application error thrown by the middleware structure
             assert response.status_code in [400, 500]
 
     def test_missing_dashboard_template_fallback(self, client: TestClient) -> None:
         """Verify fallback routing behaviors on resource lookups with valid credentials provided."""
         headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
-        # Fallback endpoints with credentials should either return 404 Not Found or catch early gateway errors
         assert response.status_code in [400, 404]
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
