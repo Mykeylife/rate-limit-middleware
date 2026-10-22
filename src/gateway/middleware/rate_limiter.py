@@ -14,11 +14,11 @@ from collections import deque
 from typing import Dict, Optional
 
 from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.responses import JSONResponse
 
 
-class RateLimiterMiddleware(BaseHTTPMiddleware):
+class RateLimiterMiddleware:
     """
     Rate limiter middleware using a sliding window algorithm.
 
@@ -29,12 +29,12 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: any,
+        app: ASGIApp,
         requests_limit: int = 5,
         window_size_seconds: int = 10,
     ) -> None:
         """Initialize the Rate Limiter Middleware."""
-        super().__init__(app)
+        self.app: ASGIApp = app
         self.requests_limit: int = requests_limit
         self.window_size_seconds: int = window_size_seconds
 
@@ -93,41 +93,63 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             },
         )
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Process an incoming request through the rate limiter."""
+        # Only intercept standard HTTP requests
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+
         # Allow the unauthenticated infrastructure health probe to pass through directly
         if request.url.path == "/healthz":
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         # Extract API key from header
         api_key: Optional[str] = self._extract_api_key(request)
 
         if not api_key:
-            return self._create_error_response(
+            response = self._create_error_response(
                 status_code=400,
                 error="Missing API key",
                 message="The X-API-Key header is required.",
             )
+            await response(scope, receive, send)
+            return
 
         # Validate API key
         if not self._validate_api_key(api_key):
-            return self._create_error_response(
+            response = self._create_error_response(
                 status_code=401,
                 error="Unauthorized",
                 message="The provided API key is invalid or inactive.",
             )
+            await response(scope, receive, send)
+            return
 
         # Check rate limit (thread-safe)
         with self.lock:
             within_limit: bool = self._is_within_rate_limit(api_key)
 
         if not within_limit:
-            return self._create_error_response(
+            response = self._create_error_response(
                 status_code=429,
                 error="Too Many Requests",
                 message=f"Rate limit exceeded. Maximum {self.requests_limit} requests per {self.window_size_seconds} seconds.",
             )
+            await response(scope, receive, send)
+            return
 
-        # Request is valid; pass to next handler
-        response: Response = await call_next(request)
-        return response
+        # Request is valid; pass to next handler down the ASGI pipeline
+        try:
+            await self.app(scope, receive, send)
+        except Exception as exc:
+            # Captures downstream application errors cleanly without TaskGroups
+            response = self._create_error_response(
+                status_code=500,
+                error="Internal Server Error",
+                message=str(exc)
+            )
+            await response(scope, receive, send)
