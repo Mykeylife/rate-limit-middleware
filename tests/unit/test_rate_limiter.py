@@ -21,20 +21,18 @@ def client() -> TestClient:
 
 @pytest.fixture(autouse=True)
 def reset_database_and_windows() -> Generator[None, None, None]:
-    """Fixture to reset database status and clear middleware rate limit tracking state."""
-    # Reset local database configuration columns
+    """Fixture to reset database status and clear middleware state."""
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE api_keys SET active = 1")
         conn.commit()
-        
-    # Dynamically clear out in-memory rate limiter windows before every test item runs
+
     for middleware in app.user_middleware:
         if hasattr(middleware.cls, "request_windows"):
             middleware.options.get("request_windows", {}).clear()
-            
+
     yield
-    
+
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE api_keys SET active = 1")
@@ -52,7 +50,7 @@ class TestRateLimiterMiddleware:
         assert response.json()["status"] == "healthy"
 
     def test_rate_limit_triggered(self, client: TestClient) -> None:
-        """Verify rapid sequential requests trigger HTTP 429 when threshold breached."""
+        """Verify rapid sequential requests trigger HTTP 429."""
         headers = {"X-API-Key": "sk-test-002"}
         limit_triggered = False
         for _ in range(15):
@@ -66,7 +64,7 @@ class TestRateLimiterMiddleware:
         assert limit_triggered, "Rate limit window was not breached."
 
     def test_missing_api_key(self, client: TestClient) -> None:
-        """Verify that a request without the X-API-Key header is rejected with HTTP 400."""
+        """Verify that a request without X-API-Key header is rejected."""
         response = client.get("/api/v1/health")
         assert response.status_code == 400
         assert response.json()["error"] == "Missing API key"
@@ -79,7 +77,7 @@ class TestRateLimiterMiddleware:
         assert response.json()["error"] == "Unauthorized"
 
     def test_revoke_key_success(self, client: TestClient) -> None:
-        """Verify that an active key can be successfully revoked via POST endpoint."""
+        """Verify that an active key can be successfully revoked."""
         headers = {"X-API-Key": "sk-prod-001"}
         payload = {"api_key": "sk-test-002"}
         response = client.post("/api/v1/keys/revoke", json=payload, headers=headers)
@@ -87,14 +85,14 @@ class TestRateLimiterMiddleware:
         assert response.json()["success"] is True
 
     def test_revoke_key_invalid_payload(self, client: TestClient) -> None:
-        """Verify that a malformed JSON payload triggers a 400 Bad Request validation response."""
+        """Verify that a malformed JSON payload triggers a 400 response."""
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.post("/api/v1/keys/revoke", json={}, headers=headers)
         assert response.status_code == 400
         assert "error" in response.json()
 
     def test_infrastructure_health_probe(self, client: TestClient) -> None:
-        """Verify infrastructure health probe matches expected health status schemas using clean isolation."""
+        """Verify infrastructure health probe response ranges."""
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.get("/api/v1/health", headers=headers)
         assert response.status_code in [200, 429]
@@ -110,12 +108,12 @@ class TestRateLimiterMiddleware:
             assert json_data["message"] == "Database crash"
 
     def test_missing_dashboard_template_fallback(self, client: TestClient) -> None:
-        """Verify fallback routing behaviors on resource lookups with valid credentials provided."""
+        """Verify fallback routing behaviors on resource lookups."""
         headers = {"X-API-Key": "sk-test-004"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
         assert response.status_code in [400, 404]
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
-        """Verify handling of nonexistent or edge-case key strings inside storage streams."""
+        """Verify handling of nonexistent key strings inside storage."""
         key_status = db_manager.fetch_key_status("sk-non-existent-key-string-validation")
         assert key_status is None
