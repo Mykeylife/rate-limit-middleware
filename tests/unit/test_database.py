@@ -8,9 +8,7 @@ Tests cover:
 4. Database structure table initialization verification.
 """
 
-import sqlite3
 from unittest.mock import MagicMock, patch
-import pytest
 
 from gateway.database import db_manager
 
