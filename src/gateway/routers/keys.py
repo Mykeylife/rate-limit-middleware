@@ -5,6 +5,7 @@ Provides secure orchestration operations to generate, inspect, and rotate
 API key quotas and tracking tokens within the secure gateway perimeter.
 """
 
+import datetime
 import secrets
 from typing import List
 from pydantic import BaseModel, Field
@@ -55,8 +56,6 @@ async def generate_new_api_key(payload: KeyCreateRequest):
     if not success:
         raise HTTPException(status_code=500, detail="Database constraints prevented secure token allocation.")
 
-    record = db_manager.fetch_key_status(generated_key)
-    import datetime
     return {
         "api_key": generated_key,
         "owner": payload.owner,
@@ -103,7 +102,6 @@ async def rotate_active_api_key(payload: KeyRotationRequest):
         window_size=old_key_metadata["window_size_seconds"]
     )
 
-    import datetime
     return {
         "api_key": new_generated_key,
         "owner": old_key_metadata["owner"],
