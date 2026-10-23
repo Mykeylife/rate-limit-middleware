@@ -95,7 +95,7 @@ class TestRateLimiterMiddleware:
         """Verify infrastructure health probe response ranges."""
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.get("/api/v1/health", headers=headers)
-        assert response.status_code in [200, 429]
+        assert response.status_code in
 
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
@@ -111,9 +111,55 @@ class TestRateLimiterMiddleware:
         """Verify fallback routing behaviors on resource lookups."""
         headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
-        assert response.status_code in [400, 404]
+        assert response.status_code in
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
         """Verify handling of nonexistent key strings inside storage."""
         key_status = db_manager.fetch_key_status("sk-non-existent-key-string-validation")
         assert key_status is None
+
+    # ============================================================================
+    # API Key Administrative Lifecycle Tests (Option C Coverage Upgrades)
+    # ============================================================================
+
+    def test_generate_new_api_key(self, client: TestClient) -> None:
+        """Verify the administrative endpoint generates new secure keys successfully."""
+        payload = {
+            "owner": "Test Enterprise Client",
+            "requests_limit": 100,
+            "window_size_seconds": 60
+        }
+        response = client.post("/api/v1/keys/create", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert "api_key" in data
+        assert data["owner"] == "Test Enterprise Client"
+        assert data["requests_limit"] == 100
+        assert data["is_active"] is True
+
+    def test_list_managed_gateway_keys(self, client: TestClient) -> None:
+        """Verify system tracking configurations can be listed."""
+        response = client.get("/api/v1/keys/list")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        if len(data) > 0:
+            assert "api_key" in data[0]
+            assert "owner" in data[0]
+
+    def test_rotate_active_api_key_success(self, client: TestClient) -> None:
+        """Verify secure replacement tracking logic works on active keys."""
+        payload = {"old_api_key": "sk-test-001"}
+        response = client.post("/api/v1/keys/rotate", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert "api_key" in data
+        assert data["api_key"] != "sk-test-001"
+        assert data["is_active"] is True
+
+    def test_rotate_active_api_key_not_found(self, client: TestClient) -> None:
+        """Verify rotation fails gracefully when searching for missing keys."""
+        payload = {"old_api_key": "sk-non-existent-ghost-key"}
+        response = client.post("/api/v1/keys/rotate", json=payload)
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Target API key configuration tracking record not found."
