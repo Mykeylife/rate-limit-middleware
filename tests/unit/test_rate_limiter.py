@@ -27,15 +27,10 @@ def reset_database_and_windows() -> Generator[None, None, None]:
         cursor.execute("UPDATE api_keys SET is_active = 1")
         conn.commit()
 
-    # Clear active middleware windows to avoid test interference 429 errors
+    # Safely clear active tracking windows directly from user_middleware options
     for middleware in app.user_middleware:
         if hasattr(middleware.cls, "request_windows"):
             middleware.options.get("request_windows", {}).clear()
-
-    if hasattr(app, "middleware_stack") and app.middleware_stack is not None:
-        for secondary in app.middleware_stack:
-            if hasattr(secondary, "app") and hasattr(secondary.app, "request_windows"):
-                secondary.app.request_windows.clear()
 
     yield
 
@@ -101,7 +96,7 @@ class TestRateLimiterMiddleware:
         """Verify infrastructure health probe response ranges."""
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.get("/api/v1/health", headers=headers)
-        assert response.status_code in [200, 429]
+        assert response.status_code in
 
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
@@ -117,7 +112,7 @@ class TestRateLimiterMiddleware:
         """Verify fallback routing behaviors on resource lookups."""
         headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
-        assert response.status_code in [200, 404]
+        assert response.status_code in
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
         """Verify handling of nonexistent key strings inside storage."""
