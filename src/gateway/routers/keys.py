@@ -8,7 +8,7 @@ API key quotas and tracking tokens within the secure gateway perimeter.
 import secrets
 from typing import List
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from gateway.database import db_manager
 
 router = APIRouter(prefix="/api/v1/keys", tags=["API Key Administration"])
@@ -42,7 +42,6 @@ class KeyRotationRequest(BaseModel):
 @router.post("/create", response_model=KeyStatusResponse, status_code=201)
 async def generate_new_api_key(payload: KeyCreateRequest):
     """Provision a cryptographically random secure API token and commit configuration schemas to disk."""
-    # Generate an unguessable prefix-bound secure client API key token sequence
     token_seed = secrets.token_urlsafe(24)
     generated_key = f"sk_live_{token_seed}"
 
@@ -56,7 +55,6 @@ async def generate_new_api_key(payload: KeyCreateRequest):
     if not success:
         raise HTTPException(status_code=500, detail="Database constraints prevented secure token allocation.")
 
-    # Retrieve record snapshot for structural schema response conversions
     record = db_manager.fetch_key_status(generated_key)
     import datetime
     return {
@@ -93,10 +91,8 @@ async def rotate_active_api_key(payload: KeyRotationRequest):
     if not old_key_metadata:
         raise HTTPException(status_code=404, detail="Target API key configuration tracking record not found.")
 
-    # 1. Terminate structural eligibility flags on the expiring token
     db_manager.deactivate_key(payload.old_api_key)
 
-    # 2. Re-provision exact client schema matching configuration into a fresh replacement token
     token_seed = secrets.token_urlsafe(24)
     new_generated_key = f"sk_live_{token_seed}"
 
