@@ -2,9 +2,7 @@
 Unit Tests for Database Manager Component.
 """
 
-import unittest.mock
 from unittest.mock import MagicMock, patch
-import pytest
 
 from gateway.database import db_manager
 
