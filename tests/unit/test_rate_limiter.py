@@ -99,8 +99,8 @@ class TestRateLimiterMiddleware:
 
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
-        headers = {"X-API-Key": "sk-test-003"}
-        with unittest.mock.patch("gateway.middleware.rate_limiter.db_manager.fetch_key_status", side_effect=Exception("Database crash")):
+        headers = {"X-API-Key": "sk-test-001"}
+        with unittest.mock.patch("gateway.database.db_manager.fetch_key_status", side_effect=Exception("Database crash")):
             response = client.get("/api/v1/health", headers=headers)
             assert response.status_code == 500
             json_data = response.json()
@@ -109,7 +109,7 @@ class TestRateLimiterMiddleware:
 
     def test_missing_dashboard_template_fallback(self, client: TestClient) -> None:
         """Verify fallback routing behaviors on resource lookups."""
-        headers = {"X-API-Key": "sk-test-004"}
+        headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
         assert response.status_code in [400, 404]
 
