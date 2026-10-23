@@ -210,9 +210,7 @@ class RateLimiterMiddleware:
         # Capture valid application downstream streams and inject missing security context attributes
         async def send_with_security_headers(message) -> None:
             if message["type"] == "http.response.start":
-                # Convert active current scope byte list mappings into easy tracking strings
-                existing_headers = {h[0].decode().lower(): h[1].decode() for h in message["headers"]}
-                
+                existing_headers = {h[0].decode().lower() for h in message["headers"]}
                 for key, value in self.security_headers.items():
                     if key.lower() not in existing_headers:
                         message["headers"].append((key.lower().encode(), value.encode()))
