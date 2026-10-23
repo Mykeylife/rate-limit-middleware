@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from gateway.middleware.rate_limiter import RateLimiterMiddleware
+from gateway.routers import keys
 
 # Configure logging
 logging.basicConfig(
@@ -40,8 +41,8 @@ class RevokeKeyRequest(BaseModel):
     """
 
     api_key: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         description="The API key to revoke.",
         json_schema_extra={"example": "sk-test-001"}
     )
@@ -123,6 +124,9 @@ def create_app() -> FastAPI:
         requests_limit=5,
         window_size_seconds=10,
     )
+
+    # Mount Administrative Key Lifecycle Management Routers (Option C)
+    app_instance.include_router(keys.router)
 
     return app_instance
 
@@ -212,7 +216,7 @@ async def render_admin_dashboard() -> HTMLResponse:
     """
     Renders the interactive administrative control panel portal natively.
 
-    Reads the static dashboard layout file configuration schema directly from 
+    Reads the static dashboard layout file configuration schema directly from
     the templates folder structure workspace cleanly.
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -269,27 +273,16 @@ async def health_check() -> HealthResponse:
     },
 )
 async def revoke_api_key(payload: RevokeKeyRequest) -> RevokeKeyResponse:
-    """
-    Administrative endpoint to revoke an active API key.
-    Updates persistence tracking instantly to deny future traffic requests.
-    """
+    """Revoke/deactivate an active API key, blocking it from future routing requests."""
     from gateway.database import db_manager
-
-    target_key = payload.api_key
-    key_data = db_manager.fetch_key_status(target_key)
-
-    if key_data is None:
-        raise HTTPException(status_code=404, detail="The requested API key does not exist.")
-
-    # Force database persistence deactivation sequence
-    with db_manager.get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE api_keys SET is_active = 0 WHERE api_key = ?", (target_key,))
-        conn.commit()
-
-    logger.info(f"API key successfully revoked: {target_key}")
+    success = db_manager.deactivate_key(payload.api_key)
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="Provided API key configuration tracking record could not be modified."
+        )
     return RevokeKeyResponse(
         success=True,
-        message="API key has been successfully deactivated.",
-        api_key=target_key,
+        message="The API key was successfully deactivated.",
+        api_key=payload.api_key
     )
