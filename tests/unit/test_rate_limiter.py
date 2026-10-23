@@ -95,7 +95,7 @@ class TestRateLimiterMiddleware:
         """Verify infrastructure health probe response ranges."""
         headers = {"X-API-Key": "sk-prod-001"}
         response = client.get("/api/v1/health", headers=headers)
-        assert response.status_code in
+        assert response.status_code in [200, 429]
 
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
@@ -111,7 +111,7 @@ class TestRateLimiterMiddleware:
         """Verify fallback routing behaviors on resource lookups."""
         headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
-        assert response.status_code in
+        assert response.status_code in [400, 404]
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
         """Verify handling of nonexistent key strings inside storage."""
