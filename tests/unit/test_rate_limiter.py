@@ -17,7 +17,6 @@ from gateway.database import db_manager
 @pytest.fixture(scope="session", autouse=True)
 def setup_fresh_test_database() -> None:
     """Ensure a clean database file with the correct updated tables schema."""
-    # Force delete old DB footprint on session start to avoid column mismatch errors
     if os.path.exists("gateway.db"):
         try:
             os.remove("gateway.db")
@@ -37,7 +36,6 @@ def reset_database_and_windows() -> Generator[None, None, None]:
     """Fixture to reset database status and clear middleware state."""
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
-        # Seed core fallback credentials with the accurate database columns layout
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys 
@@ -62,7 +60,6 @@ def reset_database_and_windows() -> Generator[None, None, None]:
         cursor.execute("UPDATE api_keys SET is_active = 1")
         conn.commit()
 
-    # Safely clear active tracking windows directly from user_middleware options
     for middleware in app.user_middleware:
         if hasattr(middleware.cls, "request_windows"):
             middleware.options.get("request_windows", {}).clear()
@@ -198,5 +195,3 @@ class TestRateLimiterMiddleware:
         payload = {"old_api_key": "sk-non-existent-ghost-key"}
         response = client.post("/api/v1/keys/rotate", json=payload, headers=headers)
         assert response.status_code == 401
-
-
