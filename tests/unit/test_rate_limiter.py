@@ -49,7 +49,7 @@ def reset_database_and_windows() -> Generator[None, None, None]:
             """
             CREATE TABLE api_keys (
                 api_key TEXT PRIMARY KEY,
-                client_name TEXT NOT NULL,
+                owner TEXT NOT NULL,
                 requests_limit INTEGER NOT NULL,
                 window_size_seconds INTEGER NOT NULL,
                 is_active INTEGER DEFAULT 1,
@@ -60,25 +60,24 @@ def reset_database_and_windows() -> Generator[None, None, None]:
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, client_name, requests_limit, window_size_seconds, is_active)
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-001', 'Developer One', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, client_name, requests_limit, window_size_seconds, is_active)
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-002', 'Developer Two', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, client_name, requests_limit, window_size_seconds, is_active)
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-prod-001', 'Admin Card', 5, 10, 1)
             """
         )
-        cursor.execute("UPDATE api_keys SET is_active = 1")
         conn.commit()
 
     for middleware in app.user_middleware:
@@ -191,7 +190,6 @@ class TestRateLimiterMiddleware:
     def test_generate_new_api_key(self, client: TestClient) -> None:
         """Verify administrative endpoint generates new secure keys."""
         headers = {"X-API-Key": "sk-test-001"}
-        # Pass 'owner' to satisfy Pydantic router layout schema requirements
         payload = {
             "owner": "Test Enterprise Client",
             "requests_limit": 100,
@@ -203,6 +201,7 @@ class TestRateLimiterMiddleware:
         assert response.status_code == 201
         data = response.json()
         assert "api_key" in data
+        assert data["owner"] == "Test Enterprise Client"
         assert data["requests_limit"] == 100
         assert data["is_active"] is True
 
@@ -210,10 +209,6 @@ class TestRateLimiterMiddleware:
         """Verify system tracking configurations can be listed."""
         headers = {"X-API-Key": "sk-test-001"}
         response = client.get("/api/v1/keys/list", headers=headers)
-        # Fix assertion if list endpoint has an unaligned internal schema query
-        if response.status_code == 500:
-            pytest.skip("Skipping list validation until backend query syncs.")
-        else:
-            assert response.status_code == 200
-            data = response.json()
-            assert isinstance(data, list)
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
