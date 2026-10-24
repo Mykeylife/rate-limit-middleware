@@ -26,6 +26,23 @@ def reset_database_and_windows() -> Generator[None, None, None]:
 
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
+        
+        # Explicit drop/recreate inside the test fixture to bypass any stale files
+        cursor.execute("DROP TABLE IF EXISTS api_keys")
+        cursor.execute(
+            """
+            CREATE TABLE api_keys (
+                api_key TEXT PRIMARY KEY,
+                owner TEXT NOT NULL,
+                requests_limit INTEGER NOT NULL,
+                window_size_seconds INTEGER NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        
+        # Seed core fallback credentials safely
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys 
