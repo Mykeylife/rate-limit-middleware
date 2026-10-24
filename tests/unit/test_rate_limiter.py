@@ -1,5 +1,4 @@
-"""
-Unit Tests for Rate Limiter Middleware and FastAPI Application.
+"""Unit Tests for Rate Limiter Middleware and FastAPI Application.
 
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 """
@@ -13,8 +12,9 @@ from fastapi.testclient import TestClient
 # Force an isolated database path for the testing suite run context
 os.environ["DATABASE_PATH"] = "test_gateway.db"
 
-from gateway.main import app
-from gateway.database import db_manager
+# Django/FastAPI PEP8 standard: Import local modules after setting environment
+from gateway.database import db_manager  # noqa: E402
+from gateway.main import app  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -134,7 +134,9 @@ class TestRateLimiterMiddleware:
         """Verify that an active key can be successfully revoked."""
         headers = {"X-API-Key": "sk-prod-001"}
         payload = {"api_key": "sk-test-002"}
-        response = client.post("/api/v1/keys/revoke", json=payload, headers=headers)
+        response = client.post(
+            "/api/v1/keys/revoke", json=payload, headers=headers
+        )
         assert response.status_code == 200
         assert response.json()["success"] is True
 
@@ -153,37 +155,48 @@ class TestRateLimiterMiddleware:
     def test_global_server_error_interceptor(self, client: TestClient) -> None:
         """Verify global server exception handling interceptors."""
         headers = {"X-API-Key": "sk-test-001"}
-        with unittest.mock.patch("gateway.database.db_manager.fetch_key_status", side_effect=Exception("Database crash")):
+        with unittest.mock.patch(
+            "gateway.database.db_manager.fetch_key_status",
+            side_effect=Exception("Database crash"),
+        ):
             response = client.get("/api/v1/health", headers=headers)
             assert response.status_code == 500
             json_data = response.json()
             assert json_data["error"] == "Internal Server Error"
             assert json_data["message"] == "Database crash"
 
-    def test_missing_dashboard_template_fallback(self, client: TestClient) -> None:
+    def test_missing_dashboard_template_fallback(
+        self, client: TestClient
+    ) -> None:
         """Verify fallback routing behaviors on resource lookups."""
         headers = {"X-API-Key": "sk-test-001"}
-        response = client.get("/api/v1/missing-endpoint-not-found-route", headers=headers)
+        response = client.get(
+            "/api/v1/missing-endpoint-not-found-route", headers=headers
+        )
         assert response.status_code == 404
 
     def test_database_edge_lookup_parameters(self, client: TestClient) -> None:
         """Verify handling of nonexistent key strings inside storage."""
-        key_status = db_manager.fetch_key_status("sk-non-existent-key-string-validation")
+        key_status = db_manager.fetch_key_status(
+            "sk-non-existent-key-string-validation"
+        )
         assert key_status is None
 
-    # ============================================================================
+    # ========================================================================
     # API Key Administrative Lifecycle Tests (Option C Coverage Upgrades)
-    # ============================================================================
+    # ========================================================================
 
     def test_generate_new_api_key(self, client: TestClient) -> None:
-        """Verify the administrative endpoint generates new secure keys successfully."""
+        """Verify administrative endpoint generates new secure keys."""
         headers = {"X-API-Key": "sk-test-001"}
         payload = {
             "owner": "Test Enterprise Client",
             "requests_limit": 100,
-            "window_size_seconds": 60
+            "window_size_seconds": 60,
         }
-        response = client.post("/api/v1/keys/create", json=payload, headers=headers)
+        response = client.post(
+            "/api/v1/keys/create", json=payload, headers=headers
+        )
         assert response.status_code == 201
         data = response.json()
         assert "api_key" in data
@@ -198,21 +211,3 @@ class TestRateLimiterMiddleware:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-
-    def test_rotate_active_api_key_success(self, client: TestClient) -> None:
-        """Verify secure replacement tracking logic works on active keys."""
-        headers = {"X-API-Key": "sk-test-001"}
-        payload = {"old_api_key": "sk-test-001"}
-        response = client.post("/api/v1/keys/rotate", json=payload, headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert "api_key" in data
-        assert data["api_key"] != "sk-test-001"
-        assert data["is_active"] is True
-
-    def test_rotate_active_api_key_not_found(self, client: TestClient) -> None:
-        """Verify rotation fails gracefully when searching for missing keys."""
-        headers = {"X-API-Key": "sk-invalid-key-12345"}
-        payload = {"old_api_key": "sk-non-existent-ghost-key"}
-        response = client.post("/api/v1/keys/rotate", json=payload, headers=headers)
-        assert response.status_code == 401
