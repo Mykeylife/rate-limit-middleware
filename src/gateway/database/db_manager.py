@@ -19,21 +19,32 @@ def get_connection():
 
 
 def bootstrap_tables() -> None:
-    """Initialize the local persistent SQLite tables layout on system boot cleanly."""
+    """Initialize or safely migrate the persistent SQLite tables layout on boot."""
     with get_connection() as conn:
         cursor = conn.cursor()
+        
+        # 1. Create the base table structure if it's completely missing
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS api_keys (
                 api_key TEXT PRIMARY KEY,
-                owner TEXT NOT NULL,
                 requests_limit INTEGER NOT NULL,
                 window_size_seconds INTEGER NOT NULL,
-                is_active INTEGER DEFAULT 1,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                is_active INTEGER DEFAULT 1
             )
             """
         )
+        conn.commit()
+
+        # 2. Dynamic Migration: Safely inject Option C lifecycle schema additions if missing
+        cursor.execute("PRAGMA table_info(api_keys)")
+        columns = [row["name"] for row in cursor.fetchall()]
+
+        if "owner" not in columns:
+            cursor.execute("ALTER TABLE api_keys ADD COLUMN owner TEXT NOT NULL DEFAULT 'Unknown'")
+        if "created_at" not in columns:
+            cursor.execute("ALTER TABLE api_keys ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
+        
         conn.commit()
 
 
@@ -90,3 +101,4 @@ def deactivate_key(api_key: str) -> bool:
         cursor.execute("UPDATE api_keys SET is_active = 0 WHERE api_key = ?", (api_key,))
         conn.commit()
         return cursor.rowcount > 0
+        
