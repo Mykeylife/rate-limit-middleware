@@ -4,13 +4,33 @@ Unit Tests for Rate Limiter Middleware and FastAPI Application.
 Uses pytest and FastAPI's TestClient for isolated, reproducible testing.
 """
 
+import os
 from typing import Generator
 import unittest.mock
 import pytest
 from fastapi.testclient import TestClient
 
+# Force an isolated database path for the testing suite run context
+os.environ["DATABASE_PATH"] = "test_gateway.db"
+
 from gateway.main import app
 from gateway.database import db_manager
+
+
+@pytest.fixture(scope="session", autouse=True)
+def force_clean_test_db() -> None:
+    """Ensure any old test database files are fully scrubbed on session start."""
+    if os.path.exists("test_gateway.db"):
+        try:
+            os.remove("test_gateway.db")
+        except OSError:
+            pass
+    if os.path.exists("gateway.db"):
+        try:
+            os.remove("gateway.db")
+        except OSError:
+            pass
+    db_manager.bootstrap_tables()
 
 
 @pytest.fixture
@@ -22,8 +42,6 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def reset_database_and_windows() -> Generator[None, None, None]:
     """Fixture to reset database status and clear middleware state."""
-    db_manager.bootstrap_tables()
-
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS api_keys")
