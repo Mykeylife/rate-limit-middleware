@@ -71,10 +71,14 @@ class GatewayDatabase:
             if row is None:
                 return None
             return {
+                # New administrative router tracking keys
                 "owner": row["client_name"],
                 "requests_limit": row["requests_limit"],
                 "window_size_seconds": row["window_size_seconds"],
                 "is_active": bool(row["is_active"]),
+                # Legacy middleware tracking keys to resolve 401 Unauthorized errors
+                "name": row["client_name"],
+                "active": bool(row["is_active"]),
             }
 
     def create_api_key(
