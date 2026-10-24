@@ -49,7 +49,7 @@ def reset_database_and_windows() -> Generator[None, None, None]:
             """
             CREATE TABLE api_keys (
                 api_key TEXT PRIMARY KEY,
-                owner TEXT NOT NULL,
+                client_name TEXT NOT NULL,
                 requests_limit INTEGER NOT NULL,
                 window_size_seconds INTEGER NOT NULL,
                 is_active INTEGER DEFAULT 1,
@@ -60,21 +60,21 @@ def reset_database_and_windows() -> Generator[None, None, None]:
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-001', 'Developer One', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-002', 'Developer Two', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-prod-001', 'Admin Card', 5, 10, 1)
             """
         )
@@ -212,3 +212,4 @@ class TestRateLimiterMiddleware:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
+        assert len(data) >= 3
