@@ -22,7 +22,7 @@ def bootstrap_tables() -> None:
     """Initialize or safely migrate the persistent SQLite tables layout on boot."""
     with get_connection() as conn:
         cursor = conn.cursor()
-        
+
         # 1. Create the base table structure if it's completely missing
         cursor.execute(
             """
@@ -44,7 +44,7 @@ def bootstrap_tables() -> None:
             cursor.execute("ALTER TABLE api_keys ADD COLUMN owner TEXT NOT NULL DEFAULT 'Unknown'")
         if "created_at" not in columns:
             cursor.execute("ALTER TABLE api_keys ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
-        
+
         conn.commit()
 
 
