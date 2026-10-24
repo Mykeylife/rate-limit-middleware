@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 # Force an isolated database path for the testing suite run context
 os.environ["DATABASE_PATH"] = "test_gateway.db"
 
-# Django/FastAPI PEP8 standard: Import local modules after setting environment
+# PEP8 style rule enforcement: Import components after establishing system vars
 from gateway.database import db_manager  # noqa: E402
 from gateway.main import app  # noqa: E402
 
@@ -49,7 +49,7 @@ def reset_database_and_windows() -> Generator[None, None, None]:
             """
             CREATE TABLE api_keys (
                 api_key TEXT PRIMARY KEY,
-                owner TEXT NOT NULL,
+                client_name TEXT NOT NULL,
                 requests_limit INTEGER NOT NULL,
                 window_size_seconds INTEGER NOT NULL,
                 is_active INTEGER DEFAULT 1,
@@ -60,21 +60,21 @@ def reset_database_and_windows() -> Generator[None, None, None]:
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-001', 'Developer One', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-002', 'Developer Two', 5, 10, 1)
             """
         )
         cursor.execute(
             """
             INSERT OR IGNORE INTO api_keys
-            (api_key, owner, requests_limit, window_size_seconds, is_active)
+            (api_key, client_name, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-prod-001', 'Admin Card', 5, 10, 1)
             """
         )
@@ -143,7 +143,9 @@ class TestRateLimiterMiddleware:
     def test_revoke_key_invalid_payload(self, client: TestClient) -> None:
         """Verify that a malformed JSON payload triggers a 400 response."""
         headers = {"X-API-Key": "sk-prod-001"}
-        response = client.post("/api/v1/keys/revoke", json={}, headers=headers)
+        response = client.post(
+            "/api/v1/keys/revoke", json={}, headers=headers
+        )
         assert response.status_code == 400
         assert "error" in response.json()
 
@@ -183,14 +185,14 @@ class TestRateLimiterMiddleware:
         assert key_status is None
 
     # ========================================================================
-    # API Key Administrative Lifecycle Tests (Option C Coverage Upgrades)
+    # API Key Administrative Lifecycle Tests
     # ========================================================================
 
     def test_generate_new_api_key(self, client: TestClient) -> None:
         """Verify administrative endpoint generates new secure keys."""
         headers = {"X-API-Key": "sk-test-001"}
         payload = {
-            "owner": "Test Enterprise Client",
+            "client_name": "Test Enterprise Client",
             "requests_limit": 100,
             "window_size_seconds": 60,
         }
@@ -200,7 +202,7 @@ class TestRateLimiterMiddleware:
         assert response.status_code == 201
         data = response.json()
         assert "api_key" in data
-        assert data["owner"] == "Test Enterprise Client"
+        assert data["client_name"] == "Test Enterprise Client"
         assert data["requests_limit"] == 100
         assert data["is_active"] is True
 
