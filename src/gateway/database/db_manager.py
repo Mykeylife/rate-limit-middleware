@@ -18,6 +18,25 @@ def get_connection():
     return conn
 
 
+def bootstrap_tables() -> None:
+    """Initialize the local persistent SQLite tables layout on system boot cleanly."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS api_keys (
+                api_key TEXT PRIMARY KEY,
+                owner TEXT NOT NULL,
+                requests_limit INTEGER NOT NULL,
+                window_size_seconds INTEGER NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.commit()
+
+
 def create_api_key(api_key: str, owner: str, requests_limit: int, window_size: int) -> bool:
     """Provision a new API key configuration inside the persistent storage layer."""
     with get_connection() as conn:
