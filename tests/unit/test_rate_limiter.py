@@ -26,8 +26,6 @@ def reset_database_and_windows() -> Generator[None, None, None]:
 
     with db_manager.get_connection() as conn:
         cursor = conn.cursor()
-        
-        # Explicit drop/recreate inside the test fixture to bypass any stale files
         cursor.execute("DROP TABLE IF EXISTS api_keys")
         cursor.execute(
             """
@@ -41,26 +39,24 @@ def reset_database_and_windows() -> Generator[None, None, None]:
             )
             """
         )
-        
-        # Seed core fallback credentials safely
         cursor.execute(
             """
-            INSERT OR IGNORE INTO api_keys 
-            (api_key, owner, requests_limit, window_size_seconds, is_active) 
+            INSERT OR IGNORE INTO api_keys
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-001', 'Developer One', 5, 10, 1)
             """
         )
         cursor.execute(
             """
-            INSERT OR IGNORE INTO api_keys 
-            (api_key, owner, requests_limit, window_size_seconds, is_active) 
+            INSERT OR IGNORE INTO api_keys
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-test-002', 'Developer Two', 5, 10, 1)
             """
         )
         cursor.execute(
             """
-            INSERT OR IGNORE INTO api_keys 
-            (api_key, owner, requests_limit, window_size_seconds, is_active) 
+            INSERT OR IGNORE INTO api_keys
+            (api_key, owner, requests_limit, window_size_seconds, is_active)
             VALUES ('sk-prod-001', 'Admin Card', 5, 10, 1)
             """
         )
