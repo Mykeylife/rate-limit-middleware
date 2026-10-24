@@ -101,4 +101,3 @@ def deactivate_key(api_key: str) -> bool:
         cursor.execute("UPDATE api_keys SET is_active = 0 WHERE api_key = ?", (api_key,))
         conn.commit()
         return cursor.rowcount > 0
-        
