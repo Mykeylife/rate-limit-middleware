@@ -1,5 +1,4 @@
-"""
-FastAPI Application Entry Point with Rate Limiter Middleware Integration.
+"""FastAPI Application Entry Point with Rate Limiter Middleware Integration.
 
 This module initializes a FastAPI application, configures the rate limiter
 middleware, and provides endpoints for API key management including revocation.
@@ -8,18 +7,19 @@ All endpoints require a valid X-API-Key header and are subject to rate limiting
 constraints (5 requests per 10 seconds).
 """
 
+import datetime
 import logging
 import os
-
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from gateway.database import db_manager
 from gateway.middleware.rate_limiter import RateLimiterMiddleware
 from gateway.routers import keys
 
-# Configure logging
+# Configure logging to provide structured machine-readable properties
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -33,8 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class RevokeKeyRequest(BaseModel):
-    """
-    Request payload for the key revocation endpoint.
+    """Request payload for the key revocation endpoint.
 
     Attributes:
         api_key: The API key to revoke/deactivate.
@@ -44,13 +43,12 @@ class RevokeKeyRequest(BaseModel):
         ...,
         min_length=1,
         description="The API key to revoke.",
-        json_schema_extra={"example": "sk-test-001"}
+        json_schema_extra={"example": "sk-test-001"},
     )
 
 
 class RevokeKeyResponse(BaseModel):
-    """
-    Response payload for successful key revocation.
+    """Response payload for successful key revocation.
 
     Attributes:
         success: Whether the revocation was successful.
@@ -64,8 +62,7 @@ class RevokeKeyResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """
-    Standardized error response payload.
+    """Standardized error response payload.
 
     Attributes:
         error: Error type or code.
@@ -79,16 +76,26 @@ class ErrorResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """
-    Response payload for the health check endpoint.
+    """Response payload for the health check endpoint.
 
     Attributes:
         status: Service status indicator.
         message: Health check message.
     """
 
-    status: str = Field(description="Health status.", json_schema_extra={"example": "healthy"})
+    status: str = Field(
+        description="Health status.", json_schema_extra={"example": "healthy"}
+    )
     message: str = Field(description="Health check message.")
+
+
+class MetricTelemetryResponse(BaseModel):
+    """Response blueprint mapping system performance metrics."""
+
+    status: str = Field(description="Operational state flag indicator.")
+    total_active_keys: int = Field(description="Count of profile mappings.")
+    engine_architecture: str = Field(description="System design descriptor.")
+    timestamp: str = Field(description="ISO payload creation checkpoint.")
 
 
 # ============================================================================
@@ -97,8 +104,7 @@ class HealthResponse(BaseModel):
 
 
 def create_app() -> FastAPI:
-    """
-    Create and configure the FastAPI application.
+    """Create and configure the FastAPI application.
 
     Sets up:
     - Rate limiter middleware (5 requests / 10 seconds per API key)
@@ -110,12 +116,11 @@ def create_app() -> FastAPI:
     """
     app_instance = FastAPI(
         title="Rate Limiter & Security Gateway",
-        description="Lightweight API gateway with rate limiting and API key management.",
+        description="Lightweight API gateway with rate-limiting constraints.",
         version="1.0.0",
     )
 
     # Initialize the local persistent SQLite tables layout on system boot cleanly
-    from gateway.database import db_manager
     db_manager.bootstrap_tables()
 
     # Add rate limiter middleware
@@ -141,9 +146,10 @@ app: FastAPI = create_app()
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """
-    Handle request payload validation errors globally.
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Handle request payload validation errors globally.
 
     Converts raw internal validation trace parameters into our standardized
     ErrorResponse data architecture format cleanly.
@@ -172,7 +178,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(
+    request: Request, exc: HTTPException
+) -> JSONResponse:
     """Handle HTTPException globally."""
     logger.warning(
         f"HTTPException raised: {exc.status_code} - {exc.detail}",
@@ -189,7 +197,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def global_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
     """Handle unexpected exceptions globally."""
     logger.error(
         f"Unhandled exception: {type(exc).__name__}: {str(exc)}",
@@ -213,8 +223,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["Admin UI"])
 async def render_admin_dashboard() -> HTMLResponse:
-    """
-    Renders the interactive administrative control panel portal natively.
+    """Renders the interactive administrative control panel portal natively.
 
     Reads the static dashboard layout file configuration schema directly from
     the templates folder structure workspace cleanly.
@@ -229,7 +238,7 @@ async def render_admin_dashboard() -> HTMLResponse:
     except FileNotFoundError:
         raise HTTPException(
             status_code=404,
-            detail="Dashboard template assets missing from gateway layout compilation tree."
+            detail="Dashboard template assets missing from runtime tree.",
         )
 
 
@@ -240,8 +249,8 @@ async def render_admin_dashboard() -> HTMLResponse:
 
 @app.get("/healthz", status_code=200, tags=["Infrastructure"])
 async def infrastructure_health_probe() -> dict:
-    """
-    Unauthenticated infrastructure health probe endpoint.
+    """Unauthenticated infrastructure health probe endpoint.
+
     Bypasses the RateLimiterMiddleware to allow automated status checks.
     """
     return {"status": "healthy"}
@@ -262,27 +271,41 @@ async def health_check() -> HealthResponse:
     )
 
 
+@app.get(
+    "/api/v1/metrics",
+    response_model=MetricTelemetryResponse,
+    status_code=200,
+    tags=["Observability"],
+)
+async def get_gateway_metrics() -> dict:
+    """Exposes structured server metadata logs for metric collection tools."""
+    logger.info("Gateway metrics instrumentation log requested.")
+    active_keys = db_manager.fetch_all_keys()
+    return {
+        "status": "online",
+        "total_active_keys": len(active_keys) if active_keys else 0,
+        "engine_architecture": "Sliding Window Log (FastAPI + SQLite)",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+    }
+
+
 @app.post(
     "/api/v1/keys/revoke",
     response_model=RevokeKeyResponse,
     status_code=200,
-    tags=["Key Management"],
-    responses={
-        400: {"model": ErrorResponse, "description": "Missing or invalid payload."},
-        401: {"model": ErrorResponse, "description": "Unauthorized access."},
-    },
+    tags=["API Key Administration"],
 )
-async def revoke_api_key(payload: RevokeKeyRequest) -> RevokeKeyResponse:
-    """Revoke/deactivate an active API key, blocking it from future routing requests."""
-    from gateway.database import db_manager
+async def revoke_api_key(payload: RevokeKeyRequest) -> dict:
+    """Revoke or deactivate an active API token system assignment."""
+    logger.info(f"Revocation transaction initiated for key: {payload.api_key}")
     success = db_manager.deactivate_key(payload.api_key)
     if not success:
         raise HTTPException(
-            status_code=400,
-            detail="Provided API key configuration tracking record could not be modified."
+            status_code=404,
+            detail="Target API key configuration tracking record not found.",
         )
-    return RevokeKeyResponse(
-        success=True,
-        message="The API key was successfully deactivated.",
-        api_key=payload.api_key
-    )
+    return {
+        "success": True,
+        "message": "API key successfully revoked.",
+        "api_key": payload.api_key,
+    }
