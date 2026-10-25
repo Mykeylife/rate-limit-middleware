@@ -240,7 +240,8 @@ class TestRateLimiterMiddleware:
         self, client: TestClient
     ) -> None:
         """Verify operational telemetry data is exposed cleanly."""
-        response = client.get("/api/v1/metrics")
+        headers = {"X-API-Key": "sk-test-001"}
+        response = client.get("/api/v1/metrics", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "online"
