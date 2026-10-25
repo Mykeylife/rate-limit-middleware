@@ -213,3 +213,35 @@ class TestRateLimiterMiddleware:
         data = response.json()
         assert isinstance(data, list)
         assert len(data) >= 3
+
+    def test_rotate_active_api_key_success(self, client: TestClient) -> None:
+        """Verify that an active key can be rotated into a new sequence."""
+        headers = {"X-API-Key": "sk-prod-001"}
+        payload = {"old_api_key": "sk-test-001"}
+        response = client.post(
+            "/api/v1/keys/rotate", json=payload, headers=headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "api_key" in data
+        assert data["owner"] == "Developer One"
+        assert data["is_active"] is True
+
+    def test_rotate_missing_key_returns_404(self, client: TestClient) -> None:
+        """Verify rotating a missing token triggers a clean 404 error."""
+        headers = {"X-API-Key": "sk-prod-001"}
+        payload = {"old_api_key": "sk-non-existent-legacy-token"}
+        response = client.post(
+            "/api/v1/keys/rotate", json=payload, headers=headers
+        )
+        assert response.status_code == 404
+
+    def test_get_gateway_metrics_observability(
+        self, client: TestClient
+    ) -> None:
+        """Verify operational telemetry data is exposed cleanly."""
+        response = client.get("/api/v1/metrics")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "online"
+        assert "total_active_keys" in data
