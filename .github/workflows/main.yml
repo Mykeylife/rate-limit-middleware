@@ -28,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.matrix.python-version }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements.lock
 
@@ -46,14 +46,14 @@ jobs:
       - name: Run static type checks with mypy
         run: |
           export PYTHONPATH=$GITHUB_WORKSPACE/src
-          mypy --explicit-package-bases --namespace-packages -m gateway
+          python -m mypy --explicit-package-bases --namespace-packages -m gateway
 
       - name: Run lint with flake8
         run: |
-          flake8 src tests
+          python -m flake8 src tests
 
       - name: Run unit tests with strict 80% coverage gate
         run: |
           export PYTHONPATH=$GITHUB_WORKSPACE/src
-          # Enforce strict 80% minimum coverage constraints cleanly
-          pytest --cov=gateway --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=80
+          # Force execution through python -m context to use environment modules safely
+          python -m pytest --cov=gateway --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=80
